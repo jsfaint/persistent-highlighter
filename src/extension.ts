@@ -61,6 +61,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(toggleHighlightCommand);
+
+    const clearAllHighlightsCommand = vscode.commands.registerCommand('persistent-highlighter.clearAllHighlights', () => {
+        highlightManager.clearAllHighlights();
+    });
+
+    context.subscriptions.push(clearAllHighlightsCommand);
 }
 
 export function deactivate() {}
@@ -205,6 +211,18 @@ class HighlightManager {
             this.context.globalState.update(GLOBAL_STATE_KEY, terms);
             vscode.window.visibleTextEditors.forEach(editor => this.updateDecorations(editor));
         }
+    }
+
+    public clearAllHighlights() {
+        const terms = this.getTerms();
+        if (terms.length === 0) {
+            vscode.window.showInformationMessage('There are no highlights to clear.');
+            return;
+        }
+
+        this.context.globalState.update(GLOBAL_STATE_KEY, []);
+        vscode.window.visibleTextEditors.forEach(editor => this.updateDecorations(editor));
+        vscode.window.showInformationMessage('All highlights have been cleared.');
     }
 
     private getTerms(): HighlightedTerm[] {

@@ -12,7 +12,8 @@
   "activationEvents": [
     "onCommand:persistent-highlighter.addHighlight",
     "onCommand:persistent-highlighter.removeHighlight",
-    "onCommand:persistent-highlighter.toggleHighlight"
+    "onCommand:persistent-highlighter.toggleHighlight",
+    "onCommand:persistent-highlighter.clearAllHighlights"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -28,19 +29,13 @@
       {
         "command": "persistent-highlighter.toggleHighlight",
         "title": "Persistent Highlighter: Toggle Highlight"
+      },
+      {
+        "command": "persistent-highlighter.clearAllHighlights",
+        "title": "Persistent Highlighter: Clear All Highlights"
       }
     ],
     "keybindings": [
-      {
-        "command": "persistent-highlighter.addHighlight",
-        "key": "ctrl+alt+h",
-        "mac": "cmd+alt+h"
-      },
-      {
-        "command": "persistent-highlighter.removeHighlight",
-        "key": "ctrl+alt+u",
-        "mac": "cmd+alt+u"
-      },
       {
         "command": "persistent-highlighter.toggleHighlight",
         "key": "ctrl+alt+t",
@@ -61,6 +56,8 @@
     "@types/mocha": "^10.0.1",
     "@types/node": "20.2.5",
     "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
     "@vscode/test-electron": "^2.3.2",
     "eslint": "^8.41.0",
     "glob": "^8.1.0",
