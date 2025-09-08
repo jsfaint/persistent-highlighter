@@ -3,11 +3,16 @@ import * as vscode from 'vscode';
 // 1. 定义颜色池和 DecorationType
 // 提供一组高对比度的颜色，并为亮色和暗色主题分别指定样式
 const colorPool = [
-    { light: { backgroundColor: 'rgba(255, 255, 0, 0.4)' }, dark: { backgroundColor: 'rgba(255, 255, 0, 0.3)' } },
-    { light: { backgroundColor: 'rgba(173, 216, 230, 0.5)' }, dark: { backgroundColor: 'rgba(173, 216, 230, 0.4)' } },
-    { light: { backgroundColor: 'rgba(144, 238, 144, 0.5)' }, dark: { backgroundColor: 'rgba(144, 238, 144, 0.4)' } },
-    { light: { backgroundColor: 'rgba(255, 182, 193, 0.5)' }, dark: { backgroundColor: 'rgba(255, 182, 193, 0.4)' } },
-    { light: { backgroundColor: 'rgba(218, 112, 214, 0.5)' }, dark: { backgroundColor: 'rgba(218, 112, 214, 0.4)' } },
+    { light: { backgroundColor: 'rgba(255, 255, 0, 0.4)' }, dark: { backgroundColor: 'rgba(255, 255, 0, 0.3)' } }, // Yellow
+    { light: { backgroundColor: 'rgba(173, 216, 230, 0.5)' }, dark: { backgroundColor: 'rgba(173, 216, 230, 0.4)' } }, // Light Blue
+    { light: { backgroundColor: 'rgba(144, 238, 144, 0.5)' }, dark: { backgroundColor: 'rgba(144, 238, 144, 0.4)' } }, // Light Green
+    { light: { backgroundColor: 'rgba(255, 182, 193, 0.5)' }, dark: { backgroundColor: 'rgba(255, 182, 193, 0.4)' } }, // Light Pink
+    { light: { backgroundColor: 'rgba(218, 112, 214, 0.5)' }, dark: { backgroundColor: 'rgba(218, 112, 214, 0.4)' } }, // Orchid
+    { light: { backgroundColor: 'rgba(255, 160, 122, 0.5)' }, dark: { backgroundColor: 'rgba(255, 160, 122, 0.4)' } }, // Light Salmon
+    { light: { backgroundColor: 'rgba(240, 230, 140, 0.5)' }, dark: { backgroundColor: 'rgba(240, 230, 140, 0.4)' } }, // Khaki
+    { light: { backgroundColor: 'rgba(152, 251, 152, 0.5)' }, dark: { backgroundColor: 'rgba(152, 251, 152, 0.4)' } }, // Pale Green
+    { light: { backgroundColor: 'rgba(255, 218, 185, 0.5)' }, dark: { backgroundColor: 'rgba(255, 218, 185, 0.4)' } }, // Peach Puff
+    { light: { backgroundColor: 'rgba(221, 160, 221, 0.5)' }, dark: { backgroundColor: 'rgba(221, 160, 221, 0.4)' } }, // Plum
 ];
 
 // 为颜色池中的每种颜色创建一个 DecorationType
