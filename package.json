@@ -2,7 +2,7 @@
   "name": "persistent-highlighter",
   "displayName": "Persistent Highlighter",
   "description": "A VS Code extension to highlight text persistently across files and windows.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.80.0"
   },
