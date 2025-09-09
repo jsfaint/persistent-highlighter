@@ -16,6 +16,7 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 ## Commands
 
 ### Core Commands
+
 - `Persistent Highlighter: Add Highlight`: Adds a highlight to the selected text or the word under the cursor.
 - `Persistent Highlighter: Add Highlight with Custom Color`: Adds a highlight with a custom color chosen from 25 built-in colors or a custom hex color.
 - `Persistent Highlighter: Remove Highlight`: Removes a highlight from the selected text or the word under the cursor.
@@ -23,6 +24,7 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 - `Persistent Highlighter: Clear All Highlights`: Removes all highlights from all files.
 
 ### Sidebar Commands
+
 - `Persistent Highlighter: Jump to Highlight`: Navigate to a specific highlight in the current file.
 - `Persistent Highlighter: Edit Highlight`: Modify the text of an existing highlight.
 - `Persistent Highlighter: Remove Highlight`: Delete a highlight from the sidebar.
@@ -38,11 +40,13 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 ## Usage
 
 ### Basic Usage
+
 1. Select the text you want to highlight or place the cursor on a word.
 2. Open the command palette (`Ctrl+Shift+P`).
 3. Run one of the `Persistent Highlighter` commands.
 
 ### Custom Color Usage
+
 1. Select the text you want to highlight.
 2. Run `Persistent Highlighter: Add Highlight with Custom Color`.
 3. Choose from 25 built-in colors or select "Custom Color".
@@ -50,9 +54,11 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 5. The highlight will be applied with your chosen color.
 
 ### Keyboard Shortcut
-- Use `Ctrl+Alt+T` (Windows/Linux) or `Cmd+Alt+T` (macOS) to quickly toggle highlights.
+
+- Use `Ctrl+Alt+T` (Windows/Linux) or `Cmd+Option+T` (macOS) to quickly toggle highlights.
 
 ### Sidebar Management
+
 1. Open the Explorer sidebar (`Ctrl+Shift+E`).
 2. Find the "Highlights" section at the bottom.
 3. Use the tree view to:
@@ -65,11 +71,13 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 ## Development
 
 ### Prerequisites
+
 - Node.js (version 16 or higher)
 - Visual Studio Code
 - TypeScript
 
 ### Development Setup
+
 ```bash
 # Clone the repository
 git clone https://github.com/jsfaint/persistent-highlighter.git
@@ -92,7 +100,9 @@ vsce package
 ```
 
 ### Architecture
+
 The extension uses a single-file architecture with:
+
 - `HighlightManager` class: Central manager for all highlighting operations
 - VS Code API integration: Uses `TextEditorDecorationType` for rendering highlights
 - State persistence: Uses `globalState` to store highlights across sessions
