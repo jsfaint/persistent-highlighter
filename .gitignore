@@ -1,2 +1,5 @@
 *.vsix
 out/
+.claude/
+CLAUDE.md
+GEMINI.md
