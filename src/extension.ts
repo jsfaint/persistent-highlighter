@@ -4,6 +4,7 @@ import { HighlightsTreeProvider, HighlightItem } from "./highlightsTreeProvider"
 // 1. 定义颜色池和 DecorationType
 // 提供一组高对比度的颜色，并为亮色和暗色主题分别指定样式
 const colorPool = [
+    // 基础颜色 (10个原有的)
     {
         light: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
         dark: { backgroundColor: "rgba(255, 255, 0, 0.3)" },
@@ -44,6 +45,76 @@ const colorPool = [
         light: { backgroundColor: "rgba(221, 160, 221, 0.5)" },
         dark: { backgroundColor: "rgba(221, 160, 221, 0.4)" },
     }, // Plum
+
+    // 新增颜色 (15个额外的)
+    {
+        light: { backgroundColor: "rgba(255, 99, 71, 0.4)" },
+        dark: { backgroundColor: "rgba(255, 99, 71, 0.3)" },
+    }, // Tomato
+    {
+        light: { backgroundColor: "rgba(255, 165, 0, 0.4)" },
+        dark: { backgroundColor: "rgba(255, 165, 0, 0.3)" },
+    }, // Orange
+    {
+        light: { backgroundColor: "rgba(255, 215, 0, 0.4)" },
+        dark: { backgroundColor: "rgba(255, 215, 0, 0.3)" },
+    }, // Gold
+    {
+        light: { backgroundColor: "rgba(154, 205, 50, 0.4)" },
+        dark: { backgroundColor: "rgba(154, 205, 50, 0.3)" },
+    }, // Yellow Green
+    {
+        light: { backgroundColor: "rgba(0, 255, 127, 0.4)" },
+        dark: { backgroundColor: "rgba(0, 255, 127, 0.3)" },
+    }, // Spring Green
+    {
+        light: { backgroundColor: "rgba(64, 224, 208, 0.4)" },
+        dark: { backgroundColor: "rgba(64, 224, 208, 0.3)" },
+    }, // Turquoise
+    {
+        light: { backgroundColor: "rgba(0, 191, 255, 0.4)" },
+        dark: { backgroundColor: "rgba(0, 191, 255, 0.3)" },
+    }, // Deep Sky Blue
+    {
+        light: { backgroundColor: "rgba(138, 43, 226, 0.4)" },
+        dark: { backgroundColor: "rgba(138, 43, 226, 0.3)" },
+    }, // Blue Violet
+    {
+        light: { backgroundColor: "rgba(255, 20, 147, 0.4)" },
+        dark: { backgroundColor: "rgba(255, 20, 147, 0.3)" },
+    }, // Deep Pink
+    {
+        light: { backgroundColor: "rgba(255, 105, 180, 0.4)" },
+        dark: { backgroundColor: "rgba(255, 105, 180, 0.3)" },
+    }, // Hot Pink
+    {
+        light: { backgroundColor: "rgba(199, 21, 133, 0.4)" },
+        dark: { backgroundColor: "rgba(199, 21, 133, 0.3)" },
+    }, // Medium Violet Red
+    {
+        light: { backgroundColor: "rgba(255, 127, 80, 0.4)" },
+        dark: { backgroundColor: "rgba(255, 127, 80, 0.3)" },
+    }, // Coral
+    {
+        light: { backgroundColor: "rgba(255, 69, 0, 0.4)" },
+        dark: { backgroundColor: "rgba(255, 69, 0, 0.3)" },
+    }, // Red Orange
+    {
+        light: { backgroundColor: "rgba(218, 165, 32, 0.4)" },
+        dark: { backgroundColor: "rgba(218, 165, 32, 0.3)" },
+    }, // Goldenrod
+    {
+        light: { backgroundColor: "rgba(107, 142, 35, 0.4)" },
+        dark: { backgroundColor: "rgba(107, 142, 35, 0.3)" },
+    }, // Olive Drab
+    {
+        light: { backgroundColor: "rgba(70, 130, 180, 0.4)" },
+        dark: { backgroundColor: "rgba(70, 130, 180, 0.3)" },
+    }, // Steel Blue
+    {
+        light: { backgroundColor: "rgba(123, 104, 238, 0.4)" },
+        dark: { backgroundColor: "rgba(123, 104, 238, 0.3)" },
+    }, // Medium Slate Blue
 ];
 
 // 为颜色池中的每种颜色创建一个 DecorationType
@@ -66,9 +137,36 @@ const decorationTypes = colorPool.map((color) =>
 type HighlightedTerm = {
     text: string;
     colorId: number;
+    isCustomColor?: boolean;
+    customColor?: {
+        light: { backgroundColor: string };
+        dark: { backgroundColor: string };
+    };
 };
 
 const GLOBAL_STATE_KEY = "persistentHighlighterTerms";
+
+// VS Code预设调色板颜色
+const presetColorPalette = [
+    { hex: "#FF6B6B", name: "Coral" },
+    { hex: "#4ECDC4", name: "Turquoise" },
+    { hex: "#45B7D1", name: "Sky Blue" },
+    { hex: "#96CEB4", name: "Mint" },
+    { hex: "#FFEAA7", name: "Light Yellow" },
+    { hex: "#DDA0DD", name: "Plum" },
+    { hex: "#98D8C8", name: "Seafoam" },
+    { hex: "#F7DC6F", name: "Golden" },
+    { hex: "#BB8FCE", name: "Lavender" },
+    { hex: "#85C1E9", name: "Light Blue" },
+    { hex: "#F8C471", name: "Apricot" },
+    { hex: "#82E0AA", name: "Light Green" },
+    { hex: "#F1948A", name: "Salmon" },
+    { hex: "#D7BDE2", name: "Light Purple" },
+    { hex: "#A9DFBF", name: "Pale Green" },
+    { hex: "#FAD7A0", name: "Peach" },
+    { hex: "#AED6F1", name: "Pale Blue" },
+    { hex: "#F5B7B1", name: "Rose" }
+];
 
 // 激活扩展
 export function activate(context: vscode.ExtensionContext) {
@@ -122,6 +220,16 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(clearAllHighlightsCommand);
+
+    // 自定义颜色命令
+    const addHighlightWithCustomColorCommand = vscode.commands.registerCommand(
+        "persistent-highlighter.addHighlightWithCustomColor",
+        () => {
+            highlightManager.addHighlightWithCustomColor();
+        }
+    );
+
+    context.subscriptions.push(addHighlightWithCustomColorCommand);
 
     // 侧边栏相关命令
     const jumpToHighlightCommand = vscode.commands.registerCommand(
@@ -187,11 +295,13 @@ class HighlightManager {
     private context: vscode.ExtensionContext;
     private activeEditor: vscode.TextEditor | undefined;
     private treeProvider: HighlightsTreeProvider | undefined;
+    private customDecorationTypes: Map<string, vscode.TextEditorDecorationType> | undefined;
 
     constructor(context: vscode.ExtensionContext, treeProvider?: HighlightsTreeProvider) {
         this.context = context;
         this.activeEditor = vscode.window.activeTextEditor;
         this.treeProvider = treeProvider;
+        this.customDecorationTypes = new Map();
 
         // 监听活动编辑器的变化
         vscode.window.onDidChangeActiveTextEditor(
@@ -414,6 +524,159 @@ class HighlightManager {
         );
     }
 
+    public async addHighlightWithCustomColor() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage("No active editor found.");
+            return;
+        }
+
+        let textToHighlight: string | undefined;
+        const selection = editor.selection;
+
+        if (!selection.isEmpty) {
+            textToHighlight = editor.document.getText(selection);
+        } else {
+            const wordRange = editor.document.getWordRangeAtPosition(selection.active);
+            if (wordRange) {
+                textToHighlight = editor.document.getText(wordRange);
+            }
+        }
+
+        if (!textToHighlight || textToHighlight.trim() === "") {
+            vscode.window.showWarningMessage("No text selected or word under cursor.");
+            return;
+        }
+
+        // 颜色选择器选项
+        const colorOptions = [
+            ...colorPool.map((color, index) => ({
+                label: `$(symbol-color) Color ${index + 1}`,
+                description: `Use built-in color ${index + 1}`,
+                id: index,
+                isCustom: false
+            })),
+            {
+                label: "$(color-mode) Custom Color",
+                description: "Choose a custom color",
+                id: -1,
+                isCustom: true
+            }
+        ];
+
+        const selectedOption = await vscode.window.showQuickPick(colorOptions, {
+            placeHolder: "Choose a color for the highlight"
+        });
+
+        if (!selectedOption) {
+            return; // 用户取消了选择
+        }
+
+        let colorId: number;
+        let customColor: { light: { backgroundColor: string }; dark: { backgroundColor: string } } | undefined;
+
+        if (selectedOption.isCustom) {
+            // 显示调色板选择
+            const selectedColor = await this.showColorPalette();
+
+            if (!selectedColor) {
+                return; // 用户取消了选择
+            }
+
+            let customColorHex: string;
+
+            if (selectedColor === "custom") {
+                // 自定义输入
+                const customInput = await vscode.window.showInputBox({
+                    prompt: "Enter a hex color code (e.g., #FF5733)",
+                    placeHolder: "#FF5733",
+                    validateInput: (value) => {
+                        if (!value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                            return "Please enter a valid hex color code (e.g., #FF5733)";
+                        }
+                        return null;
+                    }
+                });
+
+                if (!customInput) {
+                    return; // 用户取消了输入
+                }
+
+                customColorHex = customInput;
+            } else {
+                // 使用预设调色板颜色
+                customColorHex = selectedColor;
+            }
+
+            // 将hex颜色转换为rgba，设置透明度
+            const r = parseInt(customColorHex.slice(1, 3), 16);
+            const g = parseInt(customColorHex.slice(3, 5), 16);
+            const b = parseInt(customColorHex.slice(5, 7), 16);
+
+            customColor = {
+                light: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.4)` },
+                dark: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.3)` }
+            };
+            colorId = colorPool.length; // 使用一个超出内置颜色范围的ID
+        } else {
+            colorId = selectedOption.id;
+        }
+
+        const terms = this.getTerms();
+        const termIndex = terms.findIndex(
+            (t) => t.text.toLowerCase() === textToHighlight.toLowerCase()
+        );
+
+        if (termIndex !== -1) {
+            // 更新现有高亮的颜色
+            terms[termIndex].colorId = colorId;
+            terms[termIndex].isCustomColor = selectedOption.isCustom;
+            terms[termIndex].customColor = customColor;
+        } else {
+            // 添加新高亮
+            terms.push({
+                text: textToHighlight,
+                colorId,
+                isCustomColor: selectedOption.isCustom,
+                customColor
+            });
+        }
+
+        this.context.globalState.update(GLOBAL_STATE_KEY, terms);
+
+        // 如果是自定义颜色，创建新的decoration type
+        if (selectedOption.isCustom && customColor) {
+            const customDecorationType = vscode.window.createTextEditorDecorationType({
+                light: {
+                    ...customColor.light,
+                    color: "#000000",
+                },
+                dark: {
+                    ...customColor.dark,
+                    color: "#FFFFFF",
+                },
+                borderRadius: "2px",
+            });
+
+            // 存储自定义颜色decoration type
+            if (!this.customDecorationTypes) {
+                this.customDecorationTypes = new Map();
+            }
+            this.customDecorationTypes.set(textToHighlight, customDecorationType);
+        }
+
+        vscode.window.visibleTextEditors.forEach((editor) =>
+            this.updateDecorations(editor)
+        );
+
+        // 刷新侧边栏
+        if (this.treeProvider) {
+            this.treeProvider.refresh();
+        }
+
+        vscode.window.showInformationMessage(`Highlight added with ${selectedOption.isCustom ? 'custom' : 'built-in'} color.`);
+    }
+
     public jumpToHighlight(text: string): void {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -436,6 +699,30 @@ class HighlightManager {
         editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
     }
 
+    private async showColorPalette(): Promise<string | undefined> {
+        const colorOptions = [
+            ...presetColorPalette.map((color, index) => ({
+                label: `$(symbol-color) ${color.name}`,
+                description: `Color ${index + 1}`,
+                detail: `Hex: ${color.hex}`,
+                value: color.hex
+            })),
+            {
+                label: "$(edit) Custom Hex Color",
+                description: "Enter custom hex color code",
+                detail: "Input your own color (e.g., #FF5733)",
+                value: "custom"
+            }
+        ];
+
+        const selected = await vscode.window.showQuickPick(colorOptions, {
+            placeHolder: "Choose a color from the palette",
+            title: "Color Palette Selection"
+        });
+
+        return selected?.value;
+    }
+
     private getTerms(): HighlightedTerm[] {
         return this.context.globalState.get<HighlightedTerm[]>(
             GLOBAL_STATE_KEY,
@@ -448,6 +735,10 @@ class HighlightManager {
         if (terms.length === 0) {
             // 如果没有高亮词，清空所有装饰
             decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+            // 清空自定义颜色装饰
+            if (this.customDecorationTypes) {
+                this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+            }
             return;
         }
 
@@ -455,6 +746,9 @@ class HighlightManager {
         for (let i = 0; i < colorPool.length; i++) {
             decorations.set(i, []);
         }
+
+        // 自定义颜色的decorations
+        const customDecorations = new Map<string, vscode.Range[]>();
 
         const text = editor.document.getText();
 
@@ -469,15 +763,51 @@ class HighlightManager {
                 );
                 const range = new vscode.Range(startPos, endPos);
 
-                const colorDecorations = decorations.get(term.colorId);
-                if (colorDecorations) {
-                    colorDecorations.push(range);
+                if (term.isCustomColor && term.customColor) {
+                    // 自定义颜色
+                    const colorKey = `${term.text}_${term.customColor.light.backgroundColor}`;
+                    if (!customDecorations.has(colorKey)) {
+                        customDecorations.set(colorKey, []);
+                    }
+                    customDecorations.get(colorKey)!.push(range);
+                } else {
+                    // 内置颜色
+                    const colorDecorations = decorations.get(term.colorId);
+                    if (colorDecorations) {
+                        colorDecorations.push(range);
+                    }
                 }
             }
         });
 
+        // 应用内置颜色
         decorations.forEach((ranges, colorId) => {
             editor.setDecorations(decorationTypes[colorId], ranges);
+        });
+
+        // 应用自定义颜色
+        customDecorations.forEach((ranges, colorKey) => {
+            const [text] = colorKey.split('_');
+            const term = terms.find(t => t.text === text && t.isCustomColor);
+            if (term && term.customColor) {
+                // 确保自定义decoration type存在
+                if (!this.customDecorationTypes!.has(text)) {
+                    const customDecorationType = vscode.window.createTextEditorDecorationType({
+                        light: {
+                            ...term.customColor.light,
+                            color: "#000000",
+                        },
+                        dark: {
+                            ...term.customColor.dark,
+                            color: "#FFFFFF",
+                        },
+                        borderRadius: "2px",
+                    });
+                    this.customDecorationTypes!.set(text, customDecorationType);
+                }
+                const decorationType = this.customDecorationTypes!.get(text)!;
+                editor.setDecorations(decorationType, ranges);
+            }
         });
     }
 }

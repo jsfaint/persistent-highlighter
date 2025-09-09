@@ -58,6 +58,10 @@
         "command": "persistent-highlighter.editHighlight",
         "title": "Edit Highlight",
         "icon": "$(edit)"
+      },
+      {
+        "command": "persistent-highlighter.addHighlightWithCustomColor",
+        "title": "Persistent Highlighter: Add Highlight with Custom Color"
       }
     ],
     "views": {
