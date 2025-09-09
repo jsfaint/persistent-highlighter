@@ -1,7 +1,12 @@
 {
   "name": "persistent-highlighter",
   "displayName": "Persistent Highlighter",
+  "icon": "icon.png",
   "description": "A VS Code extension to highlight text persistently across files and windows.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jsfaint/persistent-highlighter.git"
+  },
   "version": "0.0.2",
   "engines": {
     "vscode": "^1.80.0"
@@ -9,12 +14,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:persistent-highlighter.addHighlight",
-    "onCommand:persistent-highlighter.removeHighlight",
-    "onCommand:persistent-highlighter.toggleHighlight",
-    "onCommand:persistent-highlighter.clearAllHighlights"
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
