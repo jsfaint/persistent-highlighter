@@ -1,6 +1,7 @@
 {
   "name": "persistent-highlighter",
   "displayName": "Persistent Highlighter",
+  "publisher": "jsfaint",
   "icon": "icon.png",
   "description": "A VS Code extension to highlight text persistently across files and windows.",
   "repository": {
