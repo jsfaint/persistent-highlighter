@@ -1,0 +1,24 @@
+# 忽略开发文件
+.git/
+.gitignore
+.vscode/
+node_modules/
+src/
+*.ts
+*.map
+
+# 忽略文档和配置文件（除了README.md）
+CLAUDE.md
+TODO.txt
+tsconfig.json
+.eslintrc.json
+
+# 忽略测试文件
+test/
+tests/
+out/test/
+
+# 忽略其他开发相关文件
+*.log
+.DS_Store
+Thumbs.db
