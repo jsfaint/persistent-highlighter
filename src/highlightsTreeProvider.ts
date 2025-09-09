@@ -4,12 +4,17 @@ export class HighlightItem extends vscode.TreeItem {
     constructor(
         public readonly text: string,
         public readonly colorId: number,
-        public readonly collapsibleState: vscode.TreeItemCollapsibleState
+        public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+        public readonly isCustomColor?: boolean,
+        public readonly customColor?: {
+            light: { backgroundColor: string };
+            dark: { backgroundColor: string };
+        }
     ) {
         super(text, collapsibleState);
 
         this.tooltip = `Click to jump to first occurrence of "${text}"`;
-        this.description = `Color ${colorId + 1}`;
+        this.description = isCustomColor ? `Custom Color` : `Color ${colorId + 1}`;
         this.iconPath = new vscode.ThemeIcon('symbol-color');
         this.contextValue = 'highlightItem';
         this.command = {
@@ -44,14 +49,16 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                     new HighlightItem(
                         term.text,
                         term.colorId,
-                        vscode.TreeItemCollapsibleState.None
+                        vscode.TreeItemCollapsibleState.None,
+                        term.isCustomColor,
+                        term.customColor
                     )
                 )
             );
         }
     }
 
-    private getTerms(): Array<{ text: string, colorId: number }> {
+    private getTerms(): Array<{ text: string, colorId: number, isCustomColor?: boolean, customColor?: { light: { backgroundColor: string }, dark: { backgroundColor: string } } }> {
         return this.context.globalState.get('persistentHighlighterTerms', []);
     }
 

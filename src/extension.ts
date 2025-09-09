@@ -1,134 +1,43 @@
 import * as vscode from "vscode";
 import { HighlightsTreeProvider, HighlightItem } from "./highlightsTreeProvider";
 
-// 1. 定义颜色池和 DecorationType
-// 提供一组高对比度的颜色，并为亮色和暗色主题分别指定样式
+// 内置颜色池 - 25种高对比度颜色
 const colorPool = [
-    // 基础颜色 (10个原有的)
-    {
-        light: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 255, 0, 0.3)" },
-    }, // Yellow
-    {
-        light: { backgroundColor: "rgba(173, 216, 230, 0.5)" },
-        dark: { backgroundColor: "rgba(173, 216, 230, 0.4)" },
-    }, // Light Blue
-    {
-        light: { backgroundColor: "rgba(144, 238, 144, 0.5)" },
-        dark: { backgroundColor: "rgba(144, 238, 144, 0.4)" },
-    }, // Light Green
-    {
-        light: { backgroundColor: "rgba(255, 182, 193, 0.5)" },
-        dark: { backgroundColor: "rgba(255, 182, 193, 0.4)" },
-    }, // Light Pink
-    {
-        light: { backgroundColor: "rgba(218, 112, 214, 0.5)" },
-        dark: { backgroundColor: "rgba(218, 112, 214, 0.4)" },
-    }, // Orchid
-    {
-        light: { backgroundColor: "rgba(255, 160, 122, 0.5)" },
-        dark: { backgroundColor: "rgba(255, 160, 122, 0.4)" },
-    }, // Light Salmon
-    {
-        light: { backgroundColor: "rgba(240, 230, 140, 0.5)" },
-        dark: { backgroundColor: "rgba(240, 230, 140, 0.4)" },
-    }, // Khaki
-    {
-        light: { backgroundColor: "rgba(152, 251, 152, 0.5)" },
-        dark: { backgroundColor: "rgba(152, 251, 152, 0.4)" },
-    }, // Pale Green
-    {
-        light: { backgroundColor: "rgba(255, 218, 185, 0.5)" },
-        dark: { backgroundColor: "rgba(255, 218, 185, 0.4)" },
-    }, // Peach Puff
-    {
-        light: { backgroundColor: "rgba(221, 160, 221, 0.5)" },
-        dark: { backgroundColor: "rgba(221, 160, 221, 0.4)" },
-    }, // Plum
-
-    // 新增颜色 (15个额外的)
-    {
-        light: { backgroundColor: "rgba(255, 99, 71, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 99, 71, 0.3)" },
-    }, // Tomato
-    {
-        light: { backgroundColor: "rgba(255, 165, 0, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 165, 0, 0.3)" },
-    }, // Orange
-    {
-        light: { backgroundColor: "rgba(255, 215, 0, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 215, 0, 0.3)" },
-    }, // Gold
-    {
-        light: { backgroundColor: "rgba(154, 205, 50, 0.4)" },
-        dark: { backgroundColor: "rgba(154, 205, 50, 0.3)" },
-    }, // Yellow Green
-    {
-        light: { backgroundColor: "rgba(0, 255, 127, 0.4)" },
-        dark: { backgroundColor: "rgba(0, 255, 127, 0.3)" },
-    }, // Spring Green
-    {
-        light: { backgroundColor: "rgba(64, 224, 208, 0.4)" },
-        dark: { backgroundColor: "rgba(64, 224, 208, 0.3)" },
-    }, // Turquoise
-    {
-        light: { backgroundColor: "rgba(0, 191, 255, 0.4)" },
-        dark: { backgroundColor: "rgba(0, 191, 255, 0.3)" },
-    }, // Deep Sky Blue
-    {
-        light: { backgroundColor: "rgba(138, 43, 226, 0.4)" },
-        dark: { backgroundColor: "rgba(138, 43, 226, 0.3)" },
-    }, // Blue Violet
-    {
-        light: { backgroundColor: "rgba(255, 20, 147, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 20, 147, 0.3)" },
-    }, // Deep Pink
-    {
-        light: { backgroundColor: "rgba(255, 105, 180, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 105, 180, 0.3)" },
-    }, // Hot Pink
-    {
-        light: { backgroundColor: "rgba(199, 21, 133, 0.4)" },
-        dark: { backgroundColor: "rgba(199, 21, 133, 0.3)" },
-    }, // Medium Violet Red
-    {
-        light: { backgroundColor: "rgba(255, 127, 80, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 127, 80, 0.3)" },
-    }, // Coral
-    {
-        light: { backgroundColor: "rgba(255, 69, 0, 0.4)" },
-        dark: { backgroundColor: "rgba(255, 69, 0, 0.3)" },
-    }, // Red Orange
-    {
-        light: { backgroundColor: "rgba(218, 165, 32, 0.4)" },
-        dark: { backgroundColor: "rgba(218, 165, 32, 0.3)" },
-    }, // Goldenrod
-    {
-        light: { backgroundColor: "rgba(107, 142, 35, 0.4)" },
-        dark: { backgroundColor: "rgba(107, 142, 35, 0.3)" },
-    }, // Olive Drab
-    {
-        light: { backgroundColor: "rgba(70, 130, 180, 0.4)" },
-        dark: { backgroundColor: "rgba(70, 130, 180, 0.3)" },
-    }, // Steel Blue
-    {
-        light: { backgroundColor: "rgba(123, 104, 238, 0.4)" },
-        dark: { backgroundColor: "rgba(123, 104, 238, 0.3)" },
-    }, // Medium Slate Blue
+    { light: { backgroundColor: "rgba(255, 255, 0, 0.4)" }, dark: { backgroundColor: "rgba(255, 255, 0, 0.3)" } }, // Yellow
+    { light: { backgroundColor: "rgba(173, 216, 230, 0.5)" }, dark: { backgroundColor: "rgba(173, 216, 230, 0.4)" } }, // Light Blue
+    { light: { backgroundColor: "rgba(144, 238, 144, 0.5)" }, dark: { backgroundColor: "rgba(144, 238, 144, 0.4)" } }, // Light Green
+    { light: { backgroundColor: "rgba(255, 182, 193, 0.5)" }, dark: { backgroundColor: "rgba(255, 182, 193, 0.4)" } }, // Light Pink
+    { light: { backgroundColor: "rgba(218, 112, 214, 0.5)" }, dark: { backgroundColor: "rgba(218, 112, 214, 0.4)" } }, // Orchid
+    { light: { backgroundColor: "rgba(255, 160, 122, 0.5)" }, dark: { backgroundColor: "rgba(255, 160, 122, 0.4)" } }, // Light Salmon
+    { light: { backgroundColor: "rgba(240, 230, 140, 0.5)" }, dark: { backgroundColor: "rgba(240, 230, 140, 0.4)" } }, // Khaki
+    { light: { backgroundColor: "rgba(152, 251, 152, 0.5)" }, dark: { backgroundColor: "rgba(152, 251, 152, 0.4)" } }, // Pale Green
+    { light: { backgroundColor: "rgba(255, 218, 185, 0.5)" }, dark: { backgroundColor: "rgba(255, 218, 185, 0.4)" } }, // Peach Puff
+    { light: { backgroundColor: "rgba(221, 160, 221, 0.5)" }, dark: { backgroundColor: "rgba(221, 160, 221, 0.4)" } }, // Plum
+    // 额外颜色 (15个)
+    { light: { backgroundColor: "rgba(255, 99, 71, 0.4)" }, dark: { backgroundColor: "rgba(255, 99, 71, 0.3)" } }, // Tomato
+    { light: { backgroundColor: "rgba(255, 165, 0, 0.4)" }, dark: { backgroundColor: "rgba(255, 165, 0, 0.3)" } }, // Orange
+    { light: { backgroundColor: "rgba(255, 215, 0, 0.4)" }, dark: { backgroundColor: "rgba(255, 215, 0, 0.3)" } }, // Gold
+    { light: { backgroundColor: "rgba(154, 205, 50, 0.4)" }, dark: { backgroundColor: "rgba(154, 205, 50, 0.3)" } }, // Yellow Green
+    { light: { backgroundColor: "rgba(0, 255, 127, 0.4)" }, dark: { backgroundColor: "rgba(0, 255, 127, 0.3)" } }, // Spring Green
+    { light: { backgroundColor: "rgba(64, 224, 208, 0.4)" }, dark: { backgroundColor: "rgba(64, 224, 208, 0.3)" } }, // Turquoise
+    { light: { backgroundColor: "rgba(0, 191, 255, 0.4)" }, dark: { backgroundColor: "rgba(0, 191, 255, 0.3)" } }, // Deep Sky Blue
+    { light: { backgroundColor: "rgba(138, 43, 226, 0.4)" }, dark: { backgroundColor: "rgba(138, 43, 226, 0.3)" } }, // Blue Violet
+    { light: { backgroundColor: "rgba(255, 20, 147, 0.4)" }, dark: { backgroundColor: "rgba(255, 20, 147, 0.3)" } }, // Deep Pink
+    { light: { backgroundColor: "rgba(255, 105, 180, 0.4)" }, dark: { backgroundColor: "rgba(255, 105, 180, 0.3)" } }, // Hot Pink
+    { light: { backgroundColor: "rgba(199, 21, 133, 0.4)" }, dark: { backgroundColor: "rgba(199, 21, 133, 0.3)" } }, // Medium Violet Red
+    { light: { backgroundColor: "rgba(255, 127, 80, 0.4)" }, dark: { backgroundColor: "rgba(255, 127, 80, 0.3)" } }, // Coral
+    { light: { backgroundColor: "rgba(255, 69, 0, 0.4)" }, dark: { backgroundColor: "rgba(255, 69, 0, 0.3)" } }, // Red Orange
+    { light: { backgroundColor: "rgba(218, 165, 32, 0.4)" }, dark: { backgroundColor: "rgba(218, 165, 32, 0.3)" } }, // Goldenrod
+    { light: { backgroundColor: "rgba(107, 142, 35, 0.4)" }, dark: { backgroundColor: "rgba(107, 142, 35, 0.3)" } }, // Olive Drab
+    { light: { backgroundColor: "rgba(70, 130, 180, 0.4)" }, dark: { backgroundColor: "rgba(70, 130, 180, 0.3)" } }, // Steel Blue
+    { light: { backgroundColor: "rgba(123, 104, 238, 0.4)" }, dark: { backgroundColor: "rgba(123, 104, 238, 0.3)" } }, // Medium Slate Blue
 ];
 
-// 为颜色池中的每种颜色创建一个 DecorationType
+// 为颜色池中的每种颜色创建 DecorationType
 const decorationTypes = colorPool.map((color) =>
     vscode.window.createTextEditorDecorationType({
-        light: {
-            ...color.light,
-            // 保证前景文字颜色与背景形成对比
-            color: "#000000",
-        },
-        dark: {
-            ...color.dark,
-            color: "#FFFFFF",
-        },
+        light: { ...color.light, color: "#000000" },
+        dark: { ...color.dark, color: "#FFFFFF" },
         borderRadius: "2px",
     })
 );
@@ -146,7 +55,7 @@ type HighlightedTerm = {
 
 const GLOBAL_STATE_KEY = "persistentHighlighterTerms";
 
-// VS Code预设调色板颜色
+// 预设调色板 - 18种精选颜色
 const presetColorPalette = [
     { hex: "#FF6B6B", name: "Coral" },
     { hex: "#4ECDC4", name: "Turquoise" },
@@ -548,79 +457,23 @@ class HighlightManager {
             return;
         }
 
-        // 颜色选择器选项
-        const colorOptions = [
-            ...colorPool.map((color, index) => ({
-                label: `$(symbol-color) Color ${index + 1}`,
-                description: `Use built-in color ${index + 1}`,
-                id: index,
-                isCustom: false
-            })),
-            {
-                label: "$(color-mode) Custom Color",
-                description: "Choose a custom color",
-                id: -1,
-                isCustom: true
-            }
-        ];
+        // 使用VS Code内置的颜色选择器
+        const customColorHex = await this.showColorPicker();
 
-        const selectedOption = await vscode.window.showQuickPick(colorOptions, {
-            placeHolder: "Choose a color for the highlight"
-        });
-
-        if (!selectedOption) {
+        if (!customColorHex) {
             return; // 用户取消了选择
         }
 
-        let colorId: number;
-        let customColor: { light: { backgroundColor: string }; dark: { backgroundColor: string } } | undefined;
+        // 将hex颜色转换为rgba，设置透明度
+        const r = parseInt(customColorHex.slice(1, 3), 16);
+        const g = parseInt(customColorHex.slice(3, 5), 16);
+        const b = parseInt(customColorHex.slice(5, 7), 16);
 
-        if (selectedOption.isCustom) {
-            // 显示调色板选择
-            const selectedColor = await this.showColorPalette();
-
-            if (!selectedColor) {
-                return; // 用户取消了选择
-            }
-
-            let customColorHex: string;
-
-            if (selectedColor === "custom") {
-                // 自定义输入
-                const customInput = await vscode.window.showInputBox({
-                    prompt: "Enter a hex color code (e.g., #FF5733)",
-                    placeHolder: "#FF5733",
-                    validateInput: (value) => {
-                        if (!value.match(/^#[0-9A-Fa-f]{6}$/)) {
-                            return "Please enter a valid hex color code (e.g., #FF5733)";
-                        }
-                        return null;
-                    }
-                });
-
-                if (!customInput) {
-                    return; // 用户取消了输入
-                }
-
-                customColorHex = customInput;
-            } else {
-                // 使用预设调色板颜色
-                customColorHex = selectedColor;
-            }
-
-            // 将hex颜色转换为rgba，设置透明度
-            const r = parseInt(customColorHex.slice(1, 3), 16);
-            const g = parseInt(customColorHex.slice(3, 5), 16);
-            const b = parseInt(customColorHex.slice(5, 7), 16);
-
-            customColor = {
-                light: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.4)` },
-                dark: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.3)` }
-            };
-            colorId = colorPool.length; // 使用一个超出内置颜色范围的ID
-        } else {
-            colorId = selectedOption.id;
-        }
+        const customColor = {
+            light: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.4)` },
+            dark: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.3)` }
+        };
+        const colorId = colorPool.length; // 使用一个超出内置颜色范围的ID
 
         const terms = this.getTerms();
         const termIndex = terms.findIndex(
@@ -630,40 +483,38 @@ class HighlightManager {
         if (termIndex !== -1) {
             // 更新现有高亮的颜色
             terms[termIndex].colorId = colorId;
-            terms[termIndex].isCustomColor = selectedOption.isCustom;
+            terms[termIndex].isCustomColor = true;
             terms[termIndex].customColor = customColor;
         } else {
             // 添加新高亮
             terms.push({
                 text: textToHighlight,
                 colorId,
-                isCustomColor: selectedOption.isCustom,
+                isCustomColor: true,
                 customColor
             });
         }
 
         this.context.globalState.update(GLOBAL_STATE_KEY, terms);
 
-        // 如果是自定义颜色，创建新的decoration type
-        if (selectedOption.isCustom && customColor) {
-            const customDecorationType = vscode.window.createTextEditorDecorationType({
-                light: {
-                    ...customColor.light,
-                    color: "#000000",
-                },
-                dark: {
-                    ...customColor.dark,
-                    color: "#FFFFFF",
-                },
-                borderRadius: "2px",
-            });
+        // 创建新的decoration type
+        const customDecorationType = vscode.window.createTextEditorDecorationType({
+            light: {
+                ...customColor.light,
+                color: "#000000",
+            },
+            dark: {
+                ...customColor.dark,
+                color: "#FFFFFF",
+            },
+            borderRadius: "2px",
+        });
 
-            // 存储自定义颜色decoration type
-            if (!this.customDecorationTypes) {
-                this.customDecorationTypes = new Map();
-            }
-            this.customDecorationTypes.set(textToHighlight, customDecorationType);
+        // 存储自定义颜色decoration type
+        if (!this.customDecorationTypes) {
+            this.customDecorationTypes = new Map();
         }
+        this.customDecorationTypes.set(textToHighlight, customDecorationType);
 
         vscode.window.visibleTextEditors.forEach((editor) =>
             this.updateDecorations(editor)
@@ -674,7 +525,7 @@ class HighlightManager {
             this.treeProvider.refresh();
         }
 
-        vscode.window.showInformationMessage(`Highlight added with ${selectedOption.isCustom ? 'custom' : 'built-in'} color.`);
+        vscode.window.showInformationMessage(`Highlight added with custom color: ${customColorHex}`);
     }
 
     public jumpToHighlight(text: string): void {
@@ -699,28 +550,43 @@ class HighlightManager {
         editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
     }
 
-    private async showColorPalette(): Promise<string | undefined> {
+    private async showColorPicker(): Promise<string | undefined> {
+        // Provide preset color selection or custom color input
         const colorOptions = [
-            ...presetColorPalette.map((color, index) => ({
+            ...presetColorPalette.map((color) => ({
                 label: `$(symbol-color) ${color.name}`,
-                description: `Color ${index + 1}`,
-                detail: `Hex: ${color.hex}`,
+                description: color.hex,
+                detail: `Select ${color.name} color`,
                 value: color.hex
             })),
             {
-                label: "$(edit) Custom Hex Color",
-                description: "Enter custom hex color code",
-                detail: "Input your own color (e.g., #FF5733)",
+                label: "$(edit) Custom Color",
+                description: "Enter hex color code",
+                detail: "e.g., #FF5733",
                 value: "custom"
             }
         ];
 
         const selected = await vscode.window.showQuickPick(colorOptions, {
-            placeHolder: "Choose a color from the palette",
-            title: "Color Palette Selection"
+            placeHolder: "Choose a color",
+            title: "Color Picker"
         });
 
-        return selected?.value;
+        if (!selected) return undefined; // User cancelled
+
+        if (selected.value === "custom") {
+            // Custom color input
+            return await vscode.window.showInputBox({
+                prompt: "Enter hex color code (e.g., #FF5733)",
+                placeHolder: "#FF5733",
+                validateInput: (value) => {
+                    if (!value) return null;
+                    return value.match(/^#[0-9A-Fa-f]{6}$/) ? null : "Please enter a valid hex color code (e.g., #FF5733)";
+                }
+            });
+        }
+
+        return selected.value;
     }
 
     private getTerms(): HighlightedTerm[] {

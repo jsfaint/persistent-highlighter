@@ -61,7 +61,7 @@
       },
       {
         "command": "persistent-highlighter.addHighlightWithCustomColor",
-        "title": "Persistent Highlighter: Add Highlight with Custom Color"
+        "title": "Persistent Highlighter: Add Custom Color Highlight"
       }
     ],
     "views": {
