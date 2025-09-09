@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/jsfaint/persistent-highlighter.git"
   },
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -33,8 +33,72 @@
       {
         "command": "persistent-highlighter.clearAllHighlights",
         "title": "Persistent Highlighter: Clear All Highlights"
+      },
+      {
+        "command": "persistent-highlighter.refreshTree",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "persistent-highlighter.clearAllFromTree",
+        "title": "Clear All Highlights",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "persistent-highlighter.jumpToHighlight",
+        "title": "Jump to Highlight"
+      },
+      {
+        "command": "persistent-highlighter.removeHighlightFromTree",
+        "title": "Remove Highlight",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "persistent-highlighter.editHighlight",
+        "title": "Edit Highlight",
+        "icon": "$(edit)"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "highlightsView",
+          "icon": "icon.png",
+          "name": "Highlights"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "persistent-highlighter.refreshTree",
+          "when": "view == highlightsView",
+          "group": "navigation"
+        },
+        {
+          "command": "persistent-highlighter.clearAllFromTree",
+          "when": "view == highlightsView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "persistent-highlighter.jumpToHighlight",
+          "when": "view == highlightsView && viewItem == highlightItem",
+          "group": "inline"
+        },
+        {
+          "command": "persistent-highlighter.editHighlight",
+          "when": "view == highlightsView && viewItem == highlightItem",
+          "group": "inline"
+        },
+        {
+          "command": "persistent-highlighter.removeHighlightFromTree",
+          "when": "view == highlightsView && viewItem == highlightItem",
+          "group": "inline"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "persistent-highlighter.toggleHighlight",

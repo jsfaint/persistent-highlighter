@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { HighlightsTreeProvider, HighlightItem } from "./highlightsTreeProvider";
 
 // 1. 定义颜色池和 DecorationType
 // 提供一组高对比度的颜色，并为亮色和暗色主题分别指定样式
@@ -73,7 +74,17 @@ const GLOBAL_STATE_KEY = "persistentHighlighterTerms";
 export function activate(context: vscode.ExtensionContext) {
     console.log("Persistent Highlighter is now active!");
 
-    const highlightManager = new HighlightManager(context);
+    const treeProvider = new HighlightsTreeProvider(context);
+    const highlightManager = new HighlightManager(context, treeProvider);
+
+    // 注册侧边栏视图
+    vscode.window.registerTreeDataProvider('highlightsView', treeProvider);
+
+    // 创建树视图
+    const treeView = vscode.window.createTreeView('highlightsView', {
+        treeDataProvider: treeProvider,
+        showCollapseAll: true
+    });
 
     // 注册添加高亮的命令
     const addHighlightCommand = vscode.commands.registerCommand(
@@ -111,6 +122,63 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(clearAllHighlightsCommand);
+
+    // 侧边栏相关命令
+    const jumpToHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.jumpToHighlight',
+        (text: string) => {
+            highlightManager.jumpToHighlight(text);
+        }
+    );
+
+    const removeHighlightFromTreeCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.removeHighlightFromTree',
+        (item: HighlightItem) => {
+            treeProvider.removeHighlight(item.text);
+            highlightManager.refreshHighlights();
+            // 侧边栏的删除操作已经内置了refresh，这里不需要额外刷新
+        }
+    );
+
+    const editHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.editHighlight',
+        async (item: HighlightItem) => {
+            const newText = await vscode.window.showInputBox({
+                prompt: 'Edit highlight text',
+                value: item.text
+            });
+            if (newText && newText !== item.text) {
+                treeProvider.editHighlight(item.text, newText);
+                highlightManager.refreshHighlights();
+                // 侧边栏的编辑操作已经内置了refresh，这里不需要额外刷新
+            }
+        }
+    );
+
+    const refreshTreeCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.refreshTree',
+        () => {
+            treeProvider.refresh();
+        }
+    );
+
+    const clearAllFromTreeCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.clearAllFromTree',
+        () => {
+            treeProvider.clearAllHighlights();
+            highlightManager.refreshHighlights();
+            // 侧边栏的清除操作已经内置了refresh，这里不需要额外刷新
+        }
+    );
+
+    context.subscriptions.push(
+        jumpToHighlightCommand,
+        removeHighlightFromTreeCommand,
+        editHighlightCommand,
+        refreshTreeCommand,
+        clearAllFromTreeCommand,
+        treeView
+    );
 }
 
 export function deactivate() { }
@@ -118,10 +186,12 @@ export function deactivate() { }
 class HighlightManager {
     private context: vscode.ExtensionContext;
     private activeEditor: vscode.TextEditor | undefined;
+    private treeProvider: HighlightsTreeProvider | undefined;
 
-    constructor(context: vscode.ExtensionContext) {
+    constructor(context: vscode.ExtensionContext, treeProvider?: HighlightsTreeProvider) {
         this.context = context;
         this.activeEditor = vscode.window.activeTextEditor;
+        this.treeProvider = treeProvider;
 
         // 监听活动编辑器的变化
         vscode.window.onDidChangeActiveTextEditor(
@@ -198,6 +268,11 @@ class HighlightManager {
         vscode.window.visibleTextEditors.forEach((editor) =>
             this.updateDecorations(editor)
         );
+
+        // 刷新侧边栏
+        if (this.treeProvider) {
+            this.treeProvider.refresh();
+        }
     }
 
     public removeHighlight() {
@@ -245,6 +320,11 @@ class HighlightManager {
         vscode.window.visibleTextEditors.forEach((editor) =>
             this.updateDecorations(editor)
         );
+
+        // 刷新侧边栏
+        if (this.treeProvider) {
+            this.treeProvider.refresh();
+        }
     }
 
     public toggleHighlight() {
@@ -287,6 +367,11 @@ class HighlightManager {
             vscode.window.visibleTextEditors.forEach((editor) =>
                 this.updateDecorations(editor)
             );
+
+            // 刷新侧边栏
+            if (this.treeProvider) {
+                this.treeProvider.refresh();
+            }
         } else {
             // Term does not exist, so add it
             const colorId = terms.length % colorPool.length;
@@ -295,6 +380,11 @@ class HighlightManager {
             vscode.window.visibleTextEditors.forEach((editor) =>
                 this.updateDecorations(editor)
             );
+
+            // 刷新侧边栏
+            if (this.treeProvider) {
+                this.treeProvider.refresh();
+            }
         }
     }
 
@@ -309,7 +399,41 @@ class HighlightManager {
         vscode.window.visibleTextEditors.forEach((editor) =>
             this.updateDecorations(editor)
         );
+
+        // 刷新侧边栏
+        if (this.treeProvider) {
+            this.treeProvider.refresh();
+        }
+
         vscode.window.showInformationMessage("All highlights have been cleared.");
+    }
+
+    public refreshHighlights(): void {
+        vscode.window.visibleTextEditors.forEach((editor) =>
+            this.updateDecorations(editor)
+        );
+    }
+
+    public jumpToHighlight(text: string): void {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage("No active editor found.");
+            return;
+        }
+
+        const textContent = editor.document.getText();
+        const index = textContent.toLowerCase().indexOf(text.toLowerCase());
+
+        if (index === -1) {
+            vscode.window.showInformationMessage(`"${text}" not found in current file.`);
+            return;
+        }
+
+        const position = editor.document.positionAt(index);
+        const range = new vscode.Range(position, position.translate(0, text.length));
+
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
     }
 
     private getTerms(): HighlightedTerm[] {
