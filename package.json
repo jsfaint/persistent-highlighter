@@ -67,26 +67,26 @@
       },
       {
         "command": "persistent-highlighter.refreshTree",
-        "title": "Refresh",
+        "title": "Persistent Highlighter: Refresh",
         "icon": "$(refresh)"
       },
       {
         "command": "persistent-highlighter.clearAllFromTree",
-        "title": "Clear All Highlights",
+        "title": "Persistent Highlighter: Clear All Highlights",
         "icon": "$(clear-all)"
       },
       {
         "command": "persistent-highlighter.jumpToHighlight",
-        "title": "Jump to Highlight"
+        "title": "Persistent Highlighter: Jump to Highlight"
       },
       {
         "command": "persistent-highlighter.removeHighlightFromTree",
-        "title": "Remove Highlight",
+        "title": "Persistent Highlighter: Remove Highlight",
         "icon": "$(trash)"
       },
       {
         "command": "persistent-highlighter.editHighlight",
-        "title": "Edit Highlight",
+        "title": "Persistent Highlighter: Edit Highlight",
         "icon": "$(edit)"
       },
       {
