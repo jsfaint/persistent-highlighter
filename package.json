@@ -18,6 +18,16 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Persistent Highlighter",
+      "properties": {
+        "persistent-highlighter.caseSensitive": {
+          "type": "boolean",
+          "default": false,
+          "description": "caseSensitive matching for highlights"
+        }
+      }
+    },
     "commands": [
       {
         "command": "persistent-highlighter.addHighlight",

@@ -323,8 +323,9 @@ class HighlightManager {
         }
 
         const terms = this.getTerms();
+        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
         const termIndex = terms.findIndex(
-            (t) => t.text.toLowerCase() === textToRemove.toLowerCase()
+            (t) => caseSensitive ? t.text === textToRemove : t.text.toLowerCase() === textToRemove.toLowerCase()
         );
 
         if (termIndex === -1) {
@@ -375,8 +376,9 @@ class HighlightManager {
         }
 
         const terms = this.getTerms();
+        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
         const termIndex = terms.findIndex(
-            (t) => t.text.toLowerCase() === textToToggle!.toLowerCase()
+            (t) => caseSensitive ? t.text === textToToggle : t.text.toLowerCase() === textToToggle!.toLowerCase()
         );
 
         if (termIndex !== -1) {
@@ -476,8 +478,9 @@ class HighlightManager {
         const colorId = colorPool.length; // 使用一个超出内置颜色范围的ID
 
         const terms = this.getTerms();
+        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
         const termIndex = terms.findIndex(
-            (t) => t.text.toLowerCase() === textToHighlight.toLowerCase()
+            (t) => caseSensitive ? t.text === textToHighlight : t.text.toLowerCase() === textToHighlight.toLowerCase()
         );
 
         if (termIndex !== -1) {
@@ -536,7 +539,8 @@ class HighlightManager {
         }
 
         const textContent = editor.document.getText();
-        const index = textContent.toLowerCase().indexOf(text.toLowerCase());
+        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+        const index = caseSensitive ? textContent.indexOf(text) : textContent.toLowerCase().indexOf(text.toLowerCase());
 
         if (index === -1) {
             vscode.window.showInformationMessage(`"${text}" not found in current file.`);
@@ -619,8 +623,10 @@ class HighlightManager {
         const text = editor.document.getText();
 
         terms.forEach((term) => {
-            // 使用正则表达式进行全局、不区分大小写的匹配
-            const regex = new RegExp(term.text, "gi");
+            // 根据配置决定是否区分大小写
+            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+            const regexFlags = caseSensitive ? 'g' : 'gi';
+            const regex = new RegExp(term.text, regexFlags);
             let match;
             while ((match = regex.exec(text)) !== null) {
                 const startPos = editor.document.positionAt(match.index);
