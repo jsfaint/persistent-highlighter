@@ -236,7 +236,7 @@ class HighlightManager {
         this.customDecorationTypes = new Map();
         this.highlightCache = new Map();
         this.backgroundProcessing = new Map();
-        
+
         // 初始化优化配置
         this.optimizationConfig = {
             enabled: vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('enableLargeFileOptimization', true),
@@ -585,6 +585,12 @@ class HighlightManager {
     }
 
     public jumpToHighlight(text: string): void {
+        // 验证输入参数
+        if (!text || typeof text !== 'string') {
+            vscode.window.showErrorMessage('Invalid highlight text provided.');
+            return;
+        }
+
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showWarningMessage("No active editor found.");
@@ -593,7 +599,14 @@ class HighlightManager {
 
         const textContent = editor.document.getText();
         const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-        const index = caseSensitive ? textContent.indexOf(text) : textContent.toLowerCase().indexOf(text.toLowerCase());
+
+        let index: number;
+        try {
+            index = caseSensitive ? textContent.indexOf(text) : textContent.toLowerCase().indexOf(text.toLowerCase());
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error searching for text: ${error}`);
+            return;
+        }
 
         if (index === -1) {
             vscode.window.showInformationMessage(`"${text}" not found in current file.`);
@@ -652,7 +665,7 @@ class HighlightManager {
 
         // 获取受影响的文本
         const affectedText = editor.document.getText(extendedRange);
-        
+
         // 更新缓存 - 移除完全在受影响范围内的现有高亮
         const updatedHighlights: CachedHighlight[] = [];
         for (const highlight of cachedHighlights) {
@@ -663,7 +676,7 @@ class HighlightManager {
                 }
                 return true;
             });
-            
+
             if (newRanges.length > 0) {
                 updatedHighlights.push({
                     ...highlight,
@@ -678,7 +691,7 @@ class HighlightManager {
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
             const regexFlags = caseSensitive ? 'g' : 'gi';
             const regex = new RegExp(term.text, regexFlags);
-            
+
             let match;
             while ((match = regex.exec(affectedText)) !== null) {
                 const startPos = editor.document.positionAt(
@@ -822,7 +835,7 @@ class HighlightManager {
         if (!this.optimizationConfig.enabled) {
             return false;
         }
-        
+
         const fileSize = document.getText().length;
         return fileSize > this.optimizationConfig.chunkSize;
     }
@@ -838,10 +851,10 @@ class HighlightManager {
 
         const visibleRange = visibleRanges[0];
         const buffer = this.optimizationConfig.visibleRangeBuffer;
-        
+
         const startLine = Math.max(0, visibleRange.start.line - buffer);
         const endLine = Math.min(editor.document.lineCount - 1, visibleRange.end.line + buffer);
-        
+
         return new vscode.Range(
             new vscode.Position(startLine, 0),
             new vscode.Position(endLine, editor.document.lineAt(endLine).text.length)
@@ -866,7 +879,7 @@ class HighlightManager {
             const regex = new RegExp(term.text, regexFlags);
             const ranges: vscode.Range[] = [];
             let match;
-            
+
             while ((match = regex.exec(text)) !== null) {
                 const startPos = document.positionAt(offset + match.index);
                 const endPos = document.positionAt(offset + match.index + match[0].length);
@@ -897,7 +910,7 @@ class HighlightManager {
         }
 
         const visibleRange = this.getVisibleRangeWithBuffer(editor);
-        
+
         // 只搜索可视范围内的高亮
         const visibleHighlights = this.searchHighlightsInChunks(
             editor.document,
@@ -907,7 +920,7 @@ class HighlightManager {
 
         // 获取缓存的高亮
         const cachedHighlights = this.highlightCache.get(editor.document) || [];
-        
+
         // 合并可视范围内的高亮与缓存
         const updatedHighlights = cachedHighlights.filter(highlight => {
             // 保留不在当前可视范围内的缓存高亮
@@ -929,7 +942,7 @@ class HighlightManager {
      */
     private async startBackgroundProcessing(editor: vscode.TextEditor) {
         const document = editor.document;
-        
+
         // 如果已经在处理中，则跳过
         if (this.backgroundProcessing.get(document)) {
             return;
@@ -941,7 +954,7 @@ class HighlightManager {
         }
 
         this.backgroundProcessing.set(document, true);
-        
+
         try {
             const terms = this.getTerms();
             if (terms.length === 0) {
@@ -955,7 +968,7 @@ class HighlightManager {
             while (processedLines < totalLines) {
                 const startLine = processedLines;
                 const endLine = Math.min(processedLines + chunkLines, totalLines - 1);
-                
+
                 const chunkRange = new vscode.Range(
                     new vscode.Position(startLine, 0),
                     new vscode.Position(endLine, document.lineAt(endLine).text.length)
@@ -963,13 +976,13 @@ class HighlightManager {
 
                 // 搜索当前块中的高亮
                 const chunkHighlights = this.searchHighlightsInChunks(document, terms, chunkRange);
-                
+
                 // 获取当前缓存
                 const cachedHighlights = this.highlightCache.get(document) || [];
-                
+
                 // 合并结果
                 const updatedHighlights = this.mergeHighlights(cachedHighlights, chunkHighlights);
-                
+
                 // 更新缓存和应用高亮
                 this.highlightCache.set(document, updatedHighlights);
                 this.applyHighlightsToEditor(editor, updatedHighlights);
@@ -989,7 +1002,7 @@ class HighlightManager {
      */
     private mergeHighlights(existing: CachedHighlight[], newHighlights: CachedHighlight[]): CachedHighlight[] {
         const highlightMap = new Map<string, CachedHighlight>();
-        
+
         // 添加现有的高亮
         existing.forEach(highlight => {
             highlightMap.set(highlight.text, {
@@ -997,7 +1010,7 @@ class HighlightManager {
                 ranges: [...highlight.ranges]
             });
         });
-        
+
         // 合并新的高亮
         newHighlights.forEach(newHighlight => {
             const existing = highlightMap.get(newHighlight.text);
@@ -1010,7 +1023,7 @@ class HighlightManager {
                 });
             }
         });
-        
+
         return Array.from(highlightMap.values());
     }
 
@@ -1052,7 +1065,7 @@ class HighlightManager {
             const regex = new RegExp(term.text, regexFlags);
             const ranges: vscode.Range[] = [];
             let match;
-            
+
             while ((match = regex.exec(text)) !== null) {
                 const startPos = editor.document.positionAt(match.index);
                 const endPos = editor.document.positionAt(
