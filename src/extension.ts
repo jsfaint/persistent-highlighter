@@ -212,12 +212,22 @@ interface CachedHighlight {
     };
 }
 
+// 大文件优化配置
+interface FileOptimizationConfig {
+    enabled: boolean;
+    chunkSize: number; // 分块大小（字符数）
+    maxFileSize: number; // 最大文件大小（字符数）
+    visibleRangeBuffer: number; // 可视范围缓冲区（行数）
+}
+
 class HighlightManager {
     private context: vscode.ExtensionContext;
     private activeEditor: vscode.TextEditor | undefined;
     private treeProvider: HighlightsTreeProvider | undefined;
     private customDecorationTypes: Map<string, vscode.TextEditorDecorationType> | undefined;
     private highlightCache: Map<vscode.TextDocument, CachedHighlight[]>;
+    private optimizationConfig: FileOptimizationConfig;
+    private backgroundProcessing: Map<vscode.TextDocument, boolean>; // 跟踪后台处理状态
 
     constructor(context: vscode.ExtensionContext, treeProvider?: HighlightsTreeProvider) {
         this.context = context;
@@ -225,6 +235,15 @@ class HighlightManager {
         this.treeProvider = treeProvider;
         this.customDecorationTypes = new Map();
         this.highlightCache = new Map();
+        this.backgroundProcessing = new Map();
+        
+        // 初始化优化配置
+        this.optimizationConfig = {
+            enabled: vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('enableLargeFileOptimization', true),
+            chunkSize: vscode.workspace.getConfiguration('persistent-highlighter').get<number>('chunkSize', 50000), // 50KB
+            maxFileSize: vscode.workspace.getConfiguration('persistent-highlighter').get<number>('maxFileSize', 1000000), // 1MB
+            visibleRangeBuffer: vscode.workspace.getConfiguration('persistent-highlighter').get<number>('visibleRangeBuffer', 100) // 100行缓冲区
+        };
 
         // 监听活动编辑器的变化
         vscode.window.onDidChangeActiveTextEditor(
@@ -255,6 +274,17 @@ class HighlightManager {
         // 初始化时为当前打开的文件更新一次高亮
         vscode.window.visibleTextEditors.forEach((editor) =>
             this.updateDecorations(editor)
+        );
+
+        // 监听可视范围变化（用于大文件优化）
+        vscode.window.onDidChangeTextEditorVisibleRanges(
+            (event) => {
+                if (this.shouldOptimizeForLargeFile(event.textEditor.document)) {
+                    this.updateVisibleRangeHighlights(event.textEditor);
+                }
+            },
+            null,
+            context.subscriptions
         );
 
         // 监听文档关闭事件，清理缓存
@@ -785,6 +815,212 @@ class HighlightManager {
         );
     }
 
+    /**
+     * 判断是否需要对大文件进行特殊处理
+     */
+    private shouldOptimizeForLargeFile(document: vscode.TextDocument): boolean {
+        if (!this.optimizationConfig.enabled) {
+            return false;
+        }
+        
+        const fileSize = document.getText().length;
+        return fileSize > this.optimizationConfig.chunkSize;
+    }
+
+    /**
+     * 获取当前可视范围（带缓冲区）
+     */
+    private getVisibleRangeWithBuffer(editor: vscode.TextEditor): vscode.Range {
+        const visibleRanges = editor.visibleRanges;
+        if (visibleRanges.length === 0) {
+            return new vscode.Range(0, 0, 0, 0);
+        }
+
+        const visibleRange = visibleRanges[0];
+        const buffer = this.optimizationConfig.visibleRangeBuffer;
+        
+        const startLine = Math.max(0, visibleRange.start.line - buffer);
+        const endLine = Math.min(editor.document.lineCount - 1, visibleRange.end.line + buffer);
+        
+        return new vscode.Range(
+            new vscode.Position(startLine, 0),
+            new vscode.Position(endLine, editor.document.lineAt(endLine).text.length)
+        );
+    }
+
+    /**
+     * 分块搜索高亮词（用于大文件）
+     */
+    private searchHighlightsInChunks(
+        document: vscode.TextDocument,
+        terms: HighlightedTerm[],
+        searchRange?: vscode.Range
+    ): CachedHighlight[] {
+        const highlights: CachedHighlight[] = [];
+        const text = searchRange ? document.getText(searchRange) : document.getText();
+        const offset = searchRange ? document.offsetAt(searchRange.start) : 0;
+
+        terms.forEach((term) => {
+            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+            const regexFlags = caseSensitive ? 'g' : 'gi';
+            const regex = new RegExp(term.text, regexFlags);
+            const ranges: vscode.Range[] = [];
+            let match;
+            
+            while ((match = regex.exec(text)) !== null) {
+                const startPos = document.positionAt(offset + match.index);
+                const endPos = document.positionAt(offset + match.index + match[0].length);
+                ranges.push(new vscode.Range(startPos, endPos));
+            }
+
+            if (ranges.length > 0) {
+                highlights.push({
+                    text: term.text,
+                    ranges: ranges,
+                    colorId: term.colorId,
+                    isCustomColor: term.isCustomColor,
+                    customColor: term.customColor
+                });
+            }
+        });
+
+        return highlights;
+    }
+
+    /**
+     * 增量更新可视范围内的高亮
+     */
+    private updateVisibleRangeHighlights(editor: vscode.TextEditor) {
+        const terms = this.getTerms();
+        if (terms.length === 0) {
+            return;
+        }
+
+        const visibleRange = this.getVisibleRangeWithBuffer(editor);
+        
+        // 只搜索可视范围内的高亮
+        const visibleHighlights = this.searchHighlightsInChunks(
+            editor.document,
+            terms,
+            visibleRange
+        );
+
+        // 获取缓存的高亮
+        const cachedHighlights = this.highlightCache.get(editor.document) || [];
+        
+        // 合并可视范围内的高亮与缓存
+        const updatedHighlights = cachedHighlights.filter(highlight => {
+            // 保留不在当前可视范围内的缓存高亮
+            return !highlight.ranges.some(range => visibleRange.contains(range));
+        });
+
+        // 添加新的可视范围内的高亮
+        updatedHighlights.push(...visibleHighlights);
+
+        this.highlightCache.set(editor.document, updatedHighlights);
+        this.applyHighlightsToEditor(editor, updatedHighlights);
+
+        // 启动后台处理来渐进式处理整个文件
+        this.startBackgroundProcessing(editor);
+    }
+
+    /**
+     * 启动后台处理，渐进式处理整个大文件
+     */
+    private async startBackgroundProcessing(editor: vscode.TextEditor) {
+        const document = editor.document;
+        
+        // 如果已经在处理中，则跳过
+        if (this.backgroundProcessing.get(document)) {
+            return;
+        }
+
+        // 如果文件不够大，不需要后台处理
+        if (!this.shouldOptimizeForLargeFile(document)) {
+            return;
+        }
+
+        this.backgroundProcessing.set(document, true);
+        
+        try {
+            const terms = this.getTerms();
+            if (terms.length === 0) {
+                return;
+            }
+
+            const totalLines = document.lineCount;
+            const chunkLines = Math.max(100, Math.floor(totalLines / 20)); // 分成20个块，最少100行
+            let processedLines = 0;
+
+            while (processedLines < totalLines) {
+                const startLine = processedLines;
+                const endLine = Math.min(processedLines + chunkLines, totalLines - 1);
+                
+                const chunkRange = new vscode.Range(
+                    new vscode.Position(startLine, 0),
+                    new vscode.Position(endLine, document.lineAt(endLine).text.length)
+                );
+
+                // 搜索当前块中的高亮
+                const chunkHighlights = this.searchHighlightsInChunks(document, terms, chunkRange);
+                
+                // 获取当前缓存
+                const cachedHighlights = this.highlightCache.get(document) || [];
+                
+                // 合并结果
+                const updatedHighlights = this.mergeHighlights(cachedHighlights, chunkHighlights);
+                
+                // 更新缓存和应用高亮
+                this.highlightCache.set(document, updatedHighlights);
+                this.applyHighlightsToEditor(editor, updatedHighlights);
+
+                processedLines += chunkLines;
+
+                // 让出控制权，避免阻塞UI
+                await this.sleep(10);
+            }
+        } finally {
+            this.backgroundProcessing.set(document, false);
+        }
+    }
+
+    /**
+     * 合并高亮结果
+     */
+    private mergeHighlights(existing: CachedHighlight[], newHighlights: CachedHighlight[]): CachedHighlight[] {
+        const highlightMap = new Map<string, CachedHighlight>();
+        
+        // 添加现有的高亮
+        existing.forEach(highlight => {
+            highlightMap.set(highlight.text, {
+                ...highlight,
+                ranges: [...highlight.ranges]
+            });
+        });
+        
+        // 合并新的高亮
+        newHighlights.forEach(newHighlight => {
+            const existing = highlightMap.get(newHighlight.text);
+            if (existing) {
+                existing.ranges.push(...newHighlight.ranges);
+            } else {
+                highlightMap.set(newHighlight.text, {
+                    ...newHighlight,
+                    ranges: [...newHighlight.ranges]
+                });
+            }
+        });
+        
+        return Array.from(highlightMap.values());
+    }
+
+    /**
+     * 简单的sleep函数
+     */
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     private updateDecorations(editor: vscode.TextEditor) {
         const terms = this.getTerms();
         if (terms.length === 0) {
@@ -798,7 +1034,14 @@ class HighlightManager {
             return;
         }
 
-        // 使用缓存机制进行全量更新
+        // 检查是否需要大文件优化
+        if (this.shouldOptimizeForLargeFile(editor.document)) {
+            // 对于大文件，只处理可视范围
+            this.updateVisibleRangeHighlights(editor);
+            return;
+        }
+
+        // 小文件使用原有的全量更新
         const highlights: CachedHighlight[] = [];
         const text = editor.document.getText();
 
