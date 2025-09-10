@@ -7,10 +7,14 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 - **Persistent Highlighting**: Highlights are saved and will reappear when you reopen the file.
 - **Multiple Colors**: Use a variety of colors to highlight different terms.
 - **25 Built-in Colors**: Choose from 25 carefully selected built-in colors.
+- **18 Preset Colors**: Quick access to 18 curated preset colors in the custom color picker.
 - **Custom Color Support**: Use any hex color code for personalized highlighting.
 - **Color Selection UI**: Easy-to-use color picker for both built-in and custom colors.
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
 - **Cross-Session Persistence**: Highlights persist across VS Code sessions.
+- **Case Sensitive Matching**: Optional case-sensitive search for highlights.
+- **Large File Optimization**: Intelligent performance optimization for large files.
+- **Caching System**: Efficient caching mechanism for improved performance.
 - **Easy to Use**: Simple commands to add, remove, toggle, and manage highlights.
 
 ## Commands
@@ -49,9 +53,11 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 
 1. Select the text you want to highlight.
 2. Run `Persistent Highlighter: Add Highlight with Custom Color`.
-3. Choose from 25 built-in colors or select "Custom Color".
+3. Choose from 18 preset colors or select "Custom Color".
 4. If choosing custom color, enter a hex color code (e.g., #FF5733).
 5. The highlight will be applied with your chosen color.
+
+**Preset Colors**: Coral, Turquoise, Sky Blue, Mint, Light Yellow, Plum, Seafoam, Golden, Lavender, Light Blue, Apricot, Light Green, Salmon, Light Purple, Pale Green, Peach, Pale Blue, Rose
 
 ### Keyboard Shortcut
 
@@ -67,6 +73,33 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
    - Edit highlight text
    - Remove individual highlights
    - Clear all highlights at once
+
+## Configuration
+
+The extension provides several configuration options to customize behavior:
+
+### Performance Settings
+
+- `persistent-highlighter.enableLargeFileOptimization`: Enable optimization for large files (default: true)
+- `persistent-highlighter.chunkSize`: Chunk size in characters for large file processing (default: 50000)
+- `persistent-highlighter.maxFileSize`: Maximum file size in characters before applying optimization (default: 1000000)
+- `persistent-highlighter.visibleRangeBuffer`: Number of lines to buffer around visible range for large files (default: 100)
+
+### Search Settings
+
+- `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for highlights (default: false)
+
+To modify these settings, go to VS Code Settings and search for "Persistent Highlighter".
+
+## Recent Updates
+
+### Version 0.0.5
+- Added intelligent caching system for improved performance
+- Implemented large file optimization with configurable chunk processing
+- Added case-sensitive matching option
+- Enhanced custom color picker with 18 preset colors
+- Improved sidebar tree view with better highlight management
+- Added incremental document change processing
 
 ## Development
 
@@ -101,9 +134,13 @@ vsce package
 
 ### Architecture
 
-The extension uses a single-file architecture with:
+The extension uses a comprehensive architecture with:
 
-- `HighlightManager` class: Central manager for all highlighting operations
+- `HighlightManager` class: Central manager for all highlighting operations with caching support
+- `HighlightsTreeProvider` class: Manages the sidebar tree view for highlight management
 - VS Code API integration: Uses `TextEditorDecorationType` for rendering highlights
 - State persistence: Uses `globalState` to store highlights across sessions
 - Event-driven updates: Listens to document changes, active editor changes, and configuration changes
+- Performance optimization: Intelligent caching and large file handling
+- Custom color management: Dynamic decoration type creation for custom colors
+- Incremental updates: Efficient processing of document changes without full re-rendering
