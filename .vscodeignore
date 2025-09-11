@@ -5,9 +5,14 @@
 node_modules/
 src/
 *.ts
+
+# 忽略source map文件
+out/*.js.map
+out/**/*.js.map
 *.map
 
 # 忽略文档和配置文件（除了README.md）
+.claude
 CLAUDE.md
 TODO.txt
 tsconfig.json
