@@ -68,7 +68,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                 noEditorItem.description = 'Open a file to see highlights';
                 noEditorItem.iconPath = new vscode.ThemeIcon('info');
                 noEditorItem.contextValue = 'noEditor';
-                return Promise.resolve([noEditorItem] as any);
+                return Promise.resolve([noEditorItem as HighlightItem]);
             }
 
             // 获取当前文件内容
@@ -100,7 +100,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                 noHighlightsItem.description = 'Add highlights to see them here';
                 noHighlightsItem.iconPath = new vscode.ThemeIcon('symbol-color');
                 noHighlightsItem.contextValue = 'noHighlights';
-                return Promise.resolve([noHighlightsItem] as any);
+                return Promise.resolve([noHighlightsItem as HighlightItem]);
             }
 
             return Promise.resolve(
