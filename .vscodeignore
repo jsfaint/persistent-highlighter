@@ -12,11 +12,20 @@ out/**/*.js.map
 *.map
 
 # 忽略文档和配置文件（除了README.md）
-.claude
-CLAUDE.md
+
 TODO.txt
 tsconfig.json
 .eslintrc.json
+
+.claude
+CLAUDE.md
+
+.crush/
+CRUSH.md
+
+.gemini/
+GEMINI.md
+
 
 # 忽略测试文件
 test/
