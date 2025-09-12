@@ -137,8 +137,7 @@
     "keybindings": [
       {
         "command": "persistent-highlighter.toggleHighlight",
-        "key": "ctrl+alt+t",
-        "mac": "cmd+alt+t"
+        "key": "shift+f1"
       }
     ]
   },
