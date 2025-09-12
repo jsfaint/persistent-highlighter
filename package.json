@@ -126,11 +126,6 @@
       ],
       "view/item/context": [
         {
-          "command": "persistent-highlighter.jumpToHighlight",
-          "when": "view == highlightsView && viewItem == highlightItem",
-          "group": "inline"
-        },
-        {
           "command": "persistent-highlighter.editHighlight",
           "when": "view == highlightsView && viewItem == highlightItem",
           "group": "inline"
