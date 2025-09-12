@@ -5,6 +5,7 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 ## Features
 
 - **Persistent Highlighting**: Highlights are saved and will reappear when you reopen the file.
+- **Whole-Word Matching**: Accurate highlighting with proper word boundaries to avoid partial matches.
 - **Multiple Colors**: Use a variety of colors to highlight different terms.
 - **25 Built-in Colors**: Choose from 25 carefully selected built-in colors.
 - **18 Preset Colors**: Quick access to 18 curated preset colors in the custom color picker.
@@ -61,7 +62,7 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 
 ### Keyboard Shortcut
 
-- Use `Ctrl+Alt+T` (Windows/Linux) or `Cmd+Option+T` (macOS) to quickly toggle highlights.
+- Use `Shift+F1` to quickly toggle highlights.
 
 ### Sidebar Management
 
@@ -92,6 +93,12 @@ The extension provides several configuration options to customize behavior:
 To modify these settings, go to VS Code Settings and search for "Persistent Highlighter".
 
 ## Recent Updates
+
+### Version 0.0.6
+- **Fixed greedy matching issue**: Highlights now use whole-word matching with proper word boundaries
+- **Improved search accuracy**: Enhanced `jumpToHighlight` function to use whole-word matching
+- **Better text matching**: Fixed issue where partial word matches were incorrectly highlighted
+- **Performance maintained**: All optimizations and caching systems remain intact
 
 ### Version 0.0.5
 - Added intelligent caching system for improved performance
