@@ -187,12 +187,29 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // 新增跳转到下一个/上一个高亮的命令
+    const jumpToNextHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.jumpToNextHighlight',
+        () => {
+            highlightManager.jumpToNextHighlight();
+        }
+    );
+
+    const jumpToPrevHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.jumpToPrevHighlight',
+        () => {
+            highlightManager.jumpToPrevHighlight();
+        }
+    );
+
     context.subscriptions.push(
         jumpToHighlightCommand,
         removeHighlightFromTreeCommand,
         editHighlightCommand,
         refreshTreeCommand,
         clearAllFromTreeCommand,
+        jumpToNextHighlightCommand,
+        jumpToPrevHighlightCommand,
         treeView
     );
 }
@@ -617,6 +634,140 @@ class HighlightManager {
 
         editor.selection = new vscode.Selection(range.start, range.end);
         editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }
+
+    public jumpToNextHighlight(): void {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage("No active editor found.");
+            return;
+        }
+
+        const terms = this.getTerms();
+        if (terms.length === 0) {
+            vscode.window.showInformationMessage("No highlights found.");
+            return;
+        }
+
+        const currentPosition = editor.selection.active;
+        const document = editor.document;
+        const textContent = document.getText();
+        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+
+        // 获取当前文件中所有高亮的位置
+        const allHighlights: Array<{text: string, index: number, range: vscode.Range}> = [];
+        
+        for (const term of terms) {
+            const regexFlags = caseSensitive ? 'g' : 'gi';
+            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
+            let match;
+            
+            while ((match = regex.exec(textContent)) !== null) {
+                const startPos = document.positionAt(match.index);
+                const endPos = document.positionAt(match.index + match[0].length);
+                const range = new vscode.Range(startPos, endPos);
+                
+                allHighlights.push({
+                    text: term.text,
+                    index: match.index,
+                    range: range
+                });
+            }
+        }
+
+        if (allHighlights.length === 0) {
+            vscode.window.showInformationMessage("No highlights found in current file.");
+            return;
+        }
+
+        // 按位置排序
+        allHighlights.sort((a, b) => a.index - b.index);
+
+        // 找到当前位置之后的高亮（循环查找）
+        const currentOffset = document.offsetAt(currentPosition);
+        let nextHighlight = allHighlights.find(h => h.index > currentOffset);
+        
+        // 如果当前位置后面没有高亮，则跳转到第一个高亮（循环）
+        if (!nextHighlight) {
+            nextHighlight = allHighlights[0];
+        }
+
+        if (nextHighlight) {
+            editor.selection = new vscode.Selection(nextHighlight.range.start, nextHighlight.range.end);
+            editor.revealRange(nextHighlight.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        }
+    }
+
+    public jumpToPrevHighlight(): void {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage("No active editor found.");
+            return;
+        }
+
+        const terms = this.getTerms();
+        if (terms.length === 0) {
+            vscode.window.showInformationMessage("No highlights found.");
+            return;
+        }
+
+        const currentPosition = editor.selection.active;
+        const document = editor.document;
+        const textContent = document.getText();
+        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+
+        // 获取当前文件中所有高亮的位置
+        const allHighlights: Array<{text: string, index: number, range: vscode.Range}> = [];
+        
+        for (const term of terms) {
+            const regexFlags = caseSensitive ? 'g' : 'gi';
+            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
+            let match;
+            
+            while ((match = regex.exec(textContent)) !== null) {
+                const startPos = document.positionAt(match.index);
+                const endPos = document.positionAt(match.index + match[0].length);
+                const range = new vscode.Range(startPos, endPos);
+                
+                allHighlights.push({
+                    text: term.text,
+                    index: match.index,
+                    range: range
+                });
+            }
+        }
+
+        if (allHighlights.length === 0) {
+            vscode.window.showInformationMessage("No highlights found in current file.");
+            return;
+        }
+
+        // 按位置排序
+        allHighlights.sort((a, b) => a.index - b.index);
+
+        // 找到当前位置之前的高亮（循环查找）
+        const currentOffset = document.offsetAt(currentPosition);
+        let prevHighlight = null;
+        
+        // 从后往前找，找到第一个小于当前位置的高亮
+        for (let i = allHighlights.length - 1; i >= 0; i--) {
+            if (allHighlights[i].index < currentOffset) {
+                prevHighlight = allHighlights[i];
+                break;
+            }
+        }
+        
+        // 如果当前位置前面没有高亮，则跳转到最后一个高亮（循环）
+        if (!prevHighlight) {
+            prevHighlight = allHighlights[allHighlights.length - 1];
+        }
+
+        if (prevHighlight) {
+            editor.selection = new vscode.Selection(prevHighlight.range.start, prevHighlight.range.end);
+            editor.revealRange(prevHighlight.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        }
     }
 
     private updateDecorationsIncremental(editor: vscode.TextEditor, event: vscode.TextDocumentChangeEvent) {

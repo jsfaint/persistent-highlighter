@@ -92,6 +92,14 @@
       {
         "command": "persistent-highlighter.addHighlightWithCustomColor",
         "title": "Persistent Highlighter: Add Custom Color Highlight"
+      },
+      {
+        "command": "persistent-highlighter.jumpToNextHighlight",
+        "title": "Persistent Highlighter: Jump to Next Highlight"
+      },
+      {
+        "command": "persistent-highlighter.jumpToPrevHighlight",
+        "title": "Persistent Highlighter: Jump to Previous Highlight"
       }
     ],
     "views": {
