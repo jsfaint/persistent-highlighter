@@ -601,7 +601,7 @@ class HighlightManager {
 
         let index: number;
         try {
-            index = caseSensitive ? textContent.indexOf(text) : textContent.toLowerCase().indexOf(text.toLowerCase());
+            index = findWholeWord(textContent, text, caseSensitive);
         } catch (error) {
             vscode.window.showErrorMessage(`Error searching for text: ${error}`);
             return;
@@ -689,7 +689,8 @@ class HighlightManager {
         for (const term of terms) {
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
             const regexFlags = caseSensitive ? 'g' : 'gi';
-            const regex = new RegExp(term.text, regexFlags);
+            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
 
             let match;
             while ((match = regex.exec(affectedText)) !== null) {
@@ -875,7 +876,8 @@ class HighlightManager {
         terms.forEach((term) => {
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
             const regexFlags = caseSensitive ? 'g' : 'gi';
-            const regex = new RegExp(term.text, regexFlags);
+            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
             const ranges: vscode.Range[] = [];
             let match;
 
@@ -1061,7 +1063,8 @@ class HighlightManager {
             // 根据配置决定是否区分大小写
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
             const regexFlags = caseSensitive ? 'g' : 'gi';
-            const regex = new RegExp(term.text, regexFlags);
+            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
             const ranges: vscode.Range[] = [];
             let match;
 
@@ -1090,4 +1093,15 @@ class HighlightManager {
         // 应用高亮到编辑器
         this.applyHighlightsToEditor(editor, highlights);
     }
+}
+
+/**
+ * 全字匹配搜索函数
+ */
+function findWholeWord(text: string, searchText: string, caseSensitive: boolean = false): number {
+    const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const flags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(`\\b${escapedText}\\b`, flags);
+    const match = regex.exec(text);
+    return match ? match.index : -1;
 }
