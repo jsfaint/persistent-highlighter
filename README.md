@@ -26,6 +26,8 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 - `Persistent Highlighter: Add Highlight with Custom Color`: Adds a highlight with a custom color chosen from 25 built-in colors or a custom hex color.
 - `Persistent Highlighter: Remove Highlight`: Removes a highlight from the selected text or the word under the cursor.
 - `Persistent Highlighter: Toggle Highlight`: Toggles the highlight for the selected text or the word under the cursor.
+- `Persistent Highlighter: Jump to Next Highlight`: Navigate to the next highlight in the current file.
+- `Persistent Highlighter: Jump to Previous Highlight`: Navigate to the previous highlight in the current file.
 - `Persistent Highlighter: Clear All Highlights`: Removes all highlights from all files.
 
 ### Sidebar Commands
@@ -60,9 +62,9 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 
 **Preset Colors**: Coral, Turquoise, Sky Blue, Mint, Light Yellow, Plum, Seafoam, Golden, Lavender, Light Blue, Apricot, Light Green, Salmon, Light Purple, Pale Green, Peach, Pale Blue, Rose
 
-### Keyboard Shortcut
+### Keyboard Shortcuts
 
-- Use `Shift+F1` to quickly toggle highlights.
+- `Shift+F1`: Toggle highlight
 
 ### Sidebar Management
 
@@ -94,13 +96,22 @@ To modify these settings, go to VS Code Settings and search for "Persistent High
 
 ## Recent Updates
 
+### Version 0.0.7
+
+- **Jump to Next/Previous Highlight**: Add new command for navigation between highlights
+- **Cyclic Navigation**: Highlights cycle through the file when reaching end/beginning
+- **Case-sensitive Support**: Navigation respects the case-sensitive configuration setting
+- **Improved User Experience**: Seamless highlight navigation with appropriate warning messages
+
 ### Version 0.0.6
+
 - **Fixed greedy matching issue**: Highlights now use whole-word matching with proper word boundaries
 - **Improved search accuracy**: Enhanced `jumpToHighlight` function to use whole-word matching
 - **Better text matching**: Fixed issue where partial word matches were incorrectly highlighted
 - **Performance maintained**: All optimizations and caching systems remain intact
 
 ### Version 0.0.5
+
 - Added intelligent caching system for improved performance
 - Implemented large file optimization with configurable chunk processing
 - Added case-sensitive matching option
