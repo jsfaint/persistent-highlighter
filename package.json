@@ -71,11 +71,6 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "persistent-highlighter.clearAllFromTree",
-        "title": "Persistent Highlighter: Clear All Highlights",
-        "icon": "$(clear-all)"
-      },
-      {
         "command": "persistent-highlighter.jumpToHighlight",
         "title": "Persistent Highlighter: Jump to Highlight"
       },
@@ -119,7 +114,7 @@
           "group": "navigation"
         },
         {
-          "command": "persistent-highlighter.clearAllFromTree",
+          "command": "persistent-highlighter.clearAllHighlights",
           "when": "view == highlightsView",
           "group": "navigation"
         }

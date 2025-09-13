@@ -178,14 +178,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    const clearAllFromTreeCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.clearAllFromTree',
-        () => {
-            treeProvider.clearAllHighlights();
-            highlightManager.refreshHighlights();
-            // 侧边栏的清除操作已经内置了refresh，这里不需要额外刷新
-        }
-    );
 
     // 新增跳转到下一个/上一个高亮的命令
     const jumpToNextHighlightCommand = vscode.commands.registerCommand(
@@ -207,7 +199,6 @@ export function activate(context: vscode.ExtensionContext) {
         removeHighlightFromTreeCommand,
         editHighlightCommand,
         refreshTreeCommand,
-        clearAllFromTreeCommand,
         jumpToNextHighlightCommand,
         jumpToPrevHighlightCommand,
         treeView
