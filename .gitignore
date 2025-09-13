@@ -1,5 +1,8 @@
 *.vsix
 out/
 .claude/
+node_modules/
 CLAUDE.md
+.claude/
 GEMINI.md
+.gemini/
