@@ -20,22 +20,16 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 
 ## Commands
 
-### Core Commands
-
 - `Persistent Highlighter: Add Highlight`: Adds a highlight to the selected text or the word under the cursor.
-- `Persistent Highlighter: Add Highlight with Custom Color`: Adds a highlight with a custom color chosen from 25 built-in colors or a custom hex color.
+- `Persistent Highlighter: Add Custom Color Highlight`: Adds a highlight with a custom color chosen from 25 built-in colors or a custom hex color.
 - `Persistent Highlighter: Remove Highlight`: Removes a highlight from the selected text or the word under the cursor.
 - `Persistent Highlighter: Toggle Highlight`: Toggles the highlight for the selected text or the word under the cursor.
 - `Persistent Highlighter: Jump to Next Highlight`: Navigate to the next highlight in the current file.
 - `Persistent Highlighter: Jump to Previous Highlight`: Navigate to the previous highlight in the current file.
 - `Persistent Highlighter: Clear All Highlights`: Removes all highlights from all files.
-
-### Sidebar Commands
-
+- `Persistent Highlighter: Refresh`: Refresh the highlights tree view.
 - `Persistent Highlighter: Jump to Highlight`: Navigate to a specific highlight in the current file.
 - `Persistent Highlighter: Edit Highlight`: Modify the text of an existing highlight.
-- `Persistent Highlighter: Remove Highlight`: Delete a highlight from the sidebar.
-- `Persistent Highlighter: Refresh`: Refresh the highlights tree view.
 
 ## Installation
 
@@ -55,7 +49,7 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 ### Custom Color Usage
 
 1. Select the text you want to highlight.
-2. Run `Persistent Highlighter: Add Highlight with Custom Color`.
+2. Run `Persistent Highlighter: Add Custom Color Highlight`.
 3. Choose from 18 preset colors or select "Custom Color".
 4. If choosing custom color, enter a hex color code (e.g., #FF5733).
 5. The highlight will be applied with your chosen color.
@@ -95,6 +89,13 @@ The extension provides several configuration options to customize behavior:
 To modify these settings, go to VS Code Settings and search for "Persistent Highlighter".
 
 ## Recent Updates
+
+### Version 0.0.9
+
+- **Update version to 0.0.9**: Keep project version up to date
+- **Fix invalid highlight text provided issue**: Prevents adding empty or whitespace-only highlights
+- **Remove redundant clearAllFromTreeCommand**: Streamlined command list for clarity
+- **Update gitignore and vscodeignore**: Keep project files clean and optimized
 
 ### Version 0.0.7
 
@@ -162,3 +163,4 @@ The extension uses a comprehensive architecture with:
 - Performance optimization: Intelligent caching and large file handling
 - Custom color management: Dynamic decoration type creation for custom colors
 - Incremental updates: Efficient processing of document changes without full re-rendering
+sing of document changes without full re-rendering
