@@ -17,6 +17,7 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 - **Large File Optimization**: Intelligent performance optimization for large files.
 - **Caching System**: Efficient caching mechanism for improved performance.
 - **Easy to Use**: Simple commands to add, remove, toggle, and manage highlights.
+- **Right-Click Context Menu**: Quick access to highlighting operations directly from the editor context menu.
 
 ## Commands
 
@@ -60,6 +61,21 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 
 - `Shift+F1`: Toggle highlight
 
+### Right-Click Context Menu
+
+You can now access highlighting operations directly from the editor's right-click context menu:
+
+1. Right-click on selected text or a word in the editor
+2. Choose from the available highlighting options:
+   - **Add Highlight**: Add a highlight with default color
+   - **Remove Highlight**: Remove existing highlight
+   - **Toggle Highlight**: Toggle highlight on/off
+   - **Add Custom Color Highlight**: Add highlight with custom color
+
+**Note**: Context menu can be configured in VS Code settings:
+- `persistent-highlighter.enableContextMenu`: Enable/disable context menu (default: true)
+- `persistent-highlighter.contextMenuCollapsed`: Show as submenu or direct items (default: false)
+
 ### Sidebar Management
 
 1. Open the Explorer sidebar (`Ctrl+Shift+E`).
@@ -86,9 +102,21 @@ The extension provides several configuration options to customize behavior:
 
 - `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for highlights (default: false)
 
+### Context Menu Settings
+
+- `persistent-highlighter.enableContextMenu`: Enable right-click context menu for highlighting (default: true)
+- `persistent-highlighter.contextMenuCollapsed`: Collapse context menu submenus by default (default: false)
+
 To modify these settings, go to VS Code Settings and search for "Persistent Highlighter".
 
 ## Recent Updates
+
+### Version 0.0.11
+
+- **Right-Click Context Menu**: Add context menu support for quick highlighting operations
+- **Context Menu Configuration**: Add settings to enable/disable and customize context menu behavior
+- **Improved User Experience**: Direct access to highlighting features from editor context menu
+- **Submenu Support**: Optional collapsed submenu mode for cleaner context menu organization
 
 ### Version 0.0.9
 
