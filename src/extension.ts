@@ -38,6 +38,8 @@ const decorationTypes = colorPool.map((color) =>
         light: { ...color.light, color: "#000000" },
         dark: { ...color.dark, color: "#FFFFFF" },
         borderRadius: "2px",
+        overviewRulerColor: color.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
+        overviewRulerLane: vscode.OverviewRulerLane.Full
     })
 );
 
@@ -571,6 +573,8 @@ class HighlightManager {
                 color: "#FFFFFF",
             },
             borderRadius: "2px",
+            overviewRulerColor: customColor.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
+            overviewRulerLane: vscode.OverviewRulerLane.Full
         });
 
         // 存储自定义颜色decoration type
@@ -916,6 +920,8 @@ class HighlightManager {
                         color: "#FFFFFF",
                     },
                     borderRadius: "2px",
+                    overviewRulerColor: highlight.customColor!.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
+                    overviewRulerLane: vscode.OverviewRulerLane.Full
                 });
                 this.customDecorationTypes!.set(highlight.text, customDecorationType);
             }
