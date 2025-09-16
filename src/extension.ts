@@ -196,6 +196,35 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // 右键菜单命令
+    const contextMenuAddHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuAddHighlight',
+        () => {
+            highlightManager.addHighlight();
+        }
+    );
+
+    const contextMenuRemoveHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuRemoveHighlight',
+        () => {
+            highlightManager.removeHighlight();
+        }
+    );
+
+    const contextMenuToggleHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuToggleHighlight',
+        () => {
+            highlightManager.toggleHighlight();
+        }
+    );
+
+    const contextMenuCustomColorCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuCustomColor',
+        () => {
+            highlightManager.addHighlightWithCustomColor();
+        }
+    );
+
     context.subscriptions.push(
         jumpToHighlightCommand,
         removeHighlightFromTreeCommand,
@@ -203,6 +232,10 @@ export function activate(context: vscode.ExtensionContext) {
         refreshTreeCommand,
         jumpToNextHighlightCommand,
         jumpToPrevHighlightCommand,
+        contextMenuAddHighlightCommand,
+        contextMenuRemoveHighlightCommand,
+        contextMenuToggleHighlightCommand,
+        contextMenuCustomColorCommand,
         treeView
     );
 }
