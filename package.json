@@ -63,7 +63,8 @@
       },
       {
         "command": "persistent-highlighter.clearAllHighlights",
-        "title": "Persistent Highlighter: Clear All Highlights"
+        "title": "Persistent Highlighter: Clear All Highlights",
+        "icon": "$(clear-all)"
       },
       {
         "command": "persistent-highlighter.refreshTree",
