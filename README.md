@@ -2,6 +2,8 @@
 
 A Visual Studio Code extension that allows you to permanently highlight text in your code.
 
+Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/items?itemName=jsfaint.persistent-highlighter)
+
 ## Features
 
 - **Persistent Highlighting**: Highlights are saved and will reappear when you reopen the file.
@@ -73,6 +75,7 @@ You can now access highlighting operations directly from the editor's right-clic
    - **Add Custom Color Highlight**: Add highlight with custom color
 
 **Note**: Context menu can be configured in VS Code settings:
+
 - `persistent-highlighter.enableContextMenu`: Enable/disable context menu (default: true)
 - `persistent-highlighter.contextMenuCollapsed`: Show as submenu or direct items (default: false)
 
@@ -191,4 +194,4 @@ The extension uses a comprehensive architecture with:
 - Performance optimization: Intelligent caching and large file handling
 - Custom color management: Dynamic decoration type creation for custom colors
 - Incremental updates: Efficient processing of document changes without full re-rendering
-sing of document changes without full re-rendering
+  sing of document changes without full re-rendering
