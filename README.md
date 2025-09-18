@@ -6,8 +6,9 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 
 ## Features
 
+- **Multi-Language Support**: Now supports Chinese, Japanese, Korean, and other non-English text highlighting
 - **Persistent Highlighting**: Highlights are saved and will reappear when you reopen the file.
-- **Whole-Word Matching**: Accurate highlighting with proper word boundaries to avoid partial matches.
+- **Smart Word Boundary Detection**: Automatic language detection with appropriate boundary matching for accurate highlighting.
 - **Multiple Colors**: Use a variety of colors to highlight different terms.
 - **25 Built-in Colors**: Choose from 25 carefully selected built-in colors.
 - **18 Preset Colors**: Quick access to 18 curated preset colors in the custom color picker.
@@ -113,6 +114,13 @@ The extension provides several configuration options to customize behavior:
 To modify these settings, go to VS Code Settings and search for "Persistent Highlighter".
 
 ## Recent Updates
+
+### Version 0.0.12
+
+- **Multi-Language Support**: Now supports highlighting non-English text including Chinese, Japanese, Korean, and other Unicode characters
+- **Improved Word Boundary Detection**: Enhanced regex pattern matching for better accuracy with mixed-language content
+- **Smart Boundary Recognition**: Automatically detects text language and applies appropriate boundary matching
+- **Backward Compatibility**: English text highlighting continues to work exactly as before
 
 ### Version 0.0.11
 
