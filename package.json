@@ -15,7 +15,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
@@ -25,26 +27,6 @@
           "type": "boolean",
           "default": false,
           "description": "caseSensitive matching for highlights"
-        },
-        "persistent-highlighter.enableLargeFileOptimization": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable optimization for large files to improve performance"
-        },
-        "persistent-highlighter.chunkSize": {
-          "type": "number",
-          "default": 50000,
-          "description": "Chunk size in characters for large file processing (default: 50000)"
-        },
-        "persistent-highlighter.maxFileSize": {
-          "type": "number",
-          "default": 1000000,
-          "description": "Maximum file size in characters before applying optimization (default: 1000000)"
-        },
-        "persistent-highlighter.visibleRangeBuffer": {
-          "type": "number",
-          "default": 100,
-          "description": "Number of lines to buffer around visible range for large files (default: 100)"
         },
         "persistent-highlighter.enableContextMenu": {
           "type": "boolean",

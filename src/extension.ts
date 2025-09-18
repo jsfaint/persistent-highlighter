@@ -78,170 +78,6 @@ const presetColorPalette = [
     { hex: "#F5B7B1", name: "Rose" }
 ];
 
-// 激活扩展
-export function activate(context: vscode.ExtensionContext) {
-    console.log("Persistent Highlighter is now active!");
-
-    const treeProvider = new HighlightsTreeProvider(context);
-    const highlightManager = new HighlightManager(context, treeProvider);
-
-    // 注册侧边栏视图
-    vscode.window.registerTreeDataProvider('highlightsView', treeProvider);
-
-    // 创建树视图
-    const treeView = vscode.window.createTreeView('highlightsView', {
-        treeDataProvider: treeProvider,
-        showCollapseAll: true
-    });
-
-    // 注册添加高亮的命令
-    const addHighlightCommand = vscode.commands.registerCommand(
-        "persistent-highlighter.addHighlight",
-        () => {
-            highlightManager.addHighlight();
-        }
-    );
-
-    // 注册移除高亮的命令
-    const removeHighlightCommand = vscode.commands.registerCommand(
-        "persistent-highlighter.removeHighlight",
-        () => {
-            highlightManager.removeHighlight();
-        }
-    );
-
-    context.subscriptions.push(addHighlightCommand);
-    context.subscriptions.push(removeHighlightCommand);
-
-    const toggleHighlightCommand = vscode.commands.registerCommand(
-        "persistent-highlighter.toggleHighlight",
-        () => {
-            highlightManager.toggleHighlight();
-        }
-    );
-
-    context.subscriptions.push(toggleHighlightCommand);
-
-    const clearAllHighlightsCommand = vscode.commands.registerCommand(
-        "persistent-highlighter.clearAllHighlights",
-        () => {
-            highlightManager.clearAllHighlights();
-        }
-    );
-
-    context.subscriptions.push(clearAllHighlightsCommand);
-
-    // 自定义颜色命令
-    const addHighlightWithCustomColorCommand = vscode.commands.registerCommand(
-        "persistent-highlighter.addHighlightWithCustomColor",
-        () => {
-            highlightManager.addHighlightWithCustomColor();
-        }
-    );
-
-    context.subscriptions.push(addHighlightWithCustomColorCommand);
-
-    // 侧边栏相关命令
-    const jumpToHighlightCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.jumpToHighlight',
-        (text: string) => {
-            highlightManager.jumpToHighlight(text);
-        }
-    );
-
-    const removeHighlightFromTreeCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.removeHighlightFromTree',
-        (item: HighlightItem) => {
-            treeProvider.removeHighlight(item.text);
-            highlightManager.refreshHighlights();
-            // 侧边栏的删除操作已经内置了refresh，这里不需要额外刷新
-        }
-    );
-
-    const editHighlightCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.editHighlight',
-        async (item: HighlightItem) => {
-            const newText = await vscode.window.showInputBox({
-                prompt: 'Edit highlight text',
-                value: item.text
-            });
-            if (newText && newText !== item.text) {
-                treeProvider.editHighlight(item.text, newText);
-                highlightManager.refreshHighlights();
-                // 侧边栏的编辑操作已经内置了refresh，这里不需要额外刷新
-            }
-        }
-    );
-
-    const refreshTreeCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.refreshTree',
-        () => {
-            treeProvider.refresh();
-        }
-    );
-
-
-    // 新增跳转到下一个/上一个高亮的命令
-    const jumpToNextHighlightCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.jumpToNextHighlight',
-        () => {
-            highlightManager.jumpToNextHighlight();
-        }
-    );
-
-    const jumpToPrevHighlightCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.jumpToPrevHighlight',
-        () => {
-            highlightManager.jumpToPrevHighlight();
-        }
-    );
-
-    // 右键菜单命令
-    const contextMenuAddHighlightCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.contextMenuAddHighlight',
-        () => {
-            highlightManager.addHighlight();
-        }
-    );
-
-    const contextMenuRemoveHighlightCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.contextMenuRemoveHighlight',
-        () => {
-            highlightManager.removeHighlight();
-        }
-    );
-
-    const contextMenuToggleHighlightCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.contextMenuToggleHighlight',
-        () => {
-            highlightManager.toggleHighlight();
-        }
-    );
-
-    const contextMenuCustomColorCommand = vscode.commands.registerCommand(
-        'persistent-highlighter.contextMenuCustomColor',
-        () => {
-            highlightManager.addHighlightWithCustomColor();
-        }
-    );
-
-    context.subscriptions.push(
-        jumpToHighlightCommand,
-        removeHighlightFromTreeCommand,
-        editHighlightCommand,
-        refreshTreeCommand,
-        jumpToNextHighlightCommand,
-        jumpToPrevHighlightCommand,
-        contextMenuAddHighlightCommand,
-        contextMenuRemoveHighlightCommand,
-        contextMenuToggleHighlightCommand,
-        contextMenuCustomColorCommand,
-        treeView
-    );
-}
-
-export function deactivate() { }
-
 // 缓存高亮位置信息
 interface CachedHighlight {
     text: string;
@@ -254,43 +90,21 @@ interface CachedHighlight {
     };
 }
 
-// 大文件优化配置
-interface FileOptimizationConfig {
-    enabled: boolean;
-    chunkSize: number; // 分块大小（字符数）
-    maxFileSize: number; // 最大文件大小（字符数）
-    visibleRangeBuffer: number; // 可视范围缓冲区（行数）
-}
-
 class HighlightManager {
     private context: vscode.ExtensionContext;
-    private activeEditor: vscode.TextEditor | undefined;
     private treeProvider: HighlightsTreeProvider | undefined;
     private customDecorationTypes: Map<string, vscode.TextEditorDecorationType> | undefined;
     private highlightCache: Map<vscode.TextDocument, CachedHighlight[]>;
-    private optimizationConfig: FileOptimizationConfig;
-    private backgroundProcessing: Map<vscode.TextDocument, boolean>; // 跟踪后台处理状态
 
     constructor(context: vscode.ExtensionContext, treeProvider?: HighlightsTreeProvider) {
         this.context = context;
-        this.activeEditor = vscode.window.activeTextEditor;
         this.treeProvider = treeProvider;
         this.customDecorationTypes = new Map();
         this.highlightCache = new Map();
-        this.backgroundProcessing = new Map();
-
-        // 初始化优化配置
-        this.optimizationConfig = {
-            enabled: vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('enableLargeFileOptimization', true),
-            chunkSize: vscode.workspace.getConfiguration('persistent-highlighter').get<number>('chunkSize', 50000), // 50KB
-            maxFileSize: vscode.workspace.getConfiguration('persistent-highlighter').get<number>('maxFileSize', 1000000), // 1MB
-            visibleRangeBuffer: vscode.workspace.getConfiguration('persistent-highlighter').get<number>('visibleRangeBuffer', 100) // 100行缓冲区
-        };
 
         // 监听活动编辑器的变化
         vscode.window.onDidChangeActiveTextEditor(
             (editor) => {
-                this.activeEditor = editor;
                 if (editor) {
                     this.updateDecorations(editor);
                 }
@@ -302,11 +116,12 @@ class HighlightManager {
         // 监听文档内容的变化 - 使用增量更新
         vscode.workspace.onDidChangeTextDocument(
             (event) => {
+                const activeEditor = vscode.window.activeTextEditor;
                 if (
-                    this.activeEditor &&
-                    event.document === this.activeEditor.document
+                    activeEditor &&
+                    event.document === activeEditor.document
                 ) {
-                    this.updateDecorationsIncremental(this.activeEditor, event);
+                    this.updateDecorationsIncremental(activeEditor, event);
                 }
             },
             null,
@@ -316,17 +131,6 @@ class HighlightManager {
         // 初始化时为当前打开的文件更新一次高亮
         vscode.window.visibleTextEditors.forEach((editor) =>
             this.updateDecorations(editor)
-        );
-
-        // 监听可视范围变化（用于大文件优化）
-        vscode.window.onDidChangeTextEditorVisibleRanges(
-            (event) => {
-                if (this.shouldOptimizeForLargeFile(event.textEditor.document)) {
-                    this.updateVisibleRangeHighlights(event.textEditor);
-                }
-            },
-            null,
-            context.subscriptions
         );
 
         // 监听文档关闭事件，清理缓存
@@ -340,7 +144,7 @@ class HighlightManager {
     }
 
     public addHighlight() {
-        const editor = this.activeEditor;
+        const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showWarningMessage("No active editor found.");
             return;
@@ -390,7 +194,7 @@ class HighlightManager {
     }
 
     public removeHighlight() {
-        const editor = this.activeEditor;
+        const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showWarningMessage("No active editor found.");
             return;
@@ -443,11 +247,30 @@ class HighlightManager {
     }
 
     public toggleHighlight() {
-        const editor = this.activeEditor;
+        console.log("toggleHighlight called");
+        console.log("vscode.window.activeTextEditor:", vscode.window.activeTextEditor ? "Found" : "Not found");
+
+        const editor = vscode.window.activeTextEditor;
         if (!editor) {
+            console.log("No active editor found in toggleHighlight");
+
+            // 尝试从visibleTextEditors中获取第一个编辑器
+            const visibleEditors = vscode.window.visibleTextEditors;
+            if (visibleEditors.length > 0) {
+                console.log("Found", visibleEditors.length, "visible editors, using the first one");
+                this.toggleHighlightForEditor(visibleEditors[0]);
+                return;
+            }
+
             vscode.window.showWarningMessage("No active editor found.");
             return;
         }
+
+        this.toggleHighlightForEditor(editor);
+    }
+
+    private toggleHighlightForEditor(editor: vscode.TextEditor) {
+        console.log("Processing toggleHighlight for editor:", editor.document.fileName);
 
         let textToToggle: string | undefined;
         const selection = editor.selection;
@@ -683,19 +506,19 @@ class HighlightManager {
         const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
 
         // 获取当前文件中所有高亮的位置
-        const allHighlights: Array<{text: string, index: number, range: vscode.Range}> = [];
-        
+        const allHighlights: Array<{ text: string, index: number, range: vscode.Range }> = [];
+
         for (const term of terms) {
             const regexFlags = caseSensitive ? 'g' : 'gi';
             const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
             let match;
-            
+
             while ((match = regex.exec(textContent)) !== null) {
                 const startPos = document.positionAt(match.index);
                 const endPos = document.positionAt(match.index + match[0].length);
                 const range = new vscode.Range(startPos, endPos);
-                
+
                 allHighlights.push({
                     text: term.text,
                     index: match.index,
@@ -715,7 +538,7 @@ class HighlightManager {
         // 找到当前位置之后的高亮（循环查找）
         const currentOffset = document.offsetAt(currentPosition);
         let nextHighlight = allHighlights.find(h => h.index > currentOffset);
-        
+
         // 如果当前位置后面没有高亮，则跳转到第一个高亮（循环）
         if (!nextHighlight) {
             nextHighlight = allHighlights[0];
@@ -746,19 +569,19 @@ class HighlightManager {
         const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
 
         // 获取当前文件中所有高亮的位置
-        const allHighlights: Array<{text: string, index: number, range: vscode.Range}> = [];
-        
+        const allHighlights: Array<{ text: string, index: number, range: vscode.Range }> = [];
+
         for (const term of terms) {
             const regexFlags = caseSensitive ? 'g' : 'gi';
             const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
             let match;
-            
+
             while ((match = regex.exec(textContent)) !== null) {
                 const startPos = document.positionAt(match.index);
                 const endPos = document.positionAt(match.index + match[0].length);
                 const range = new vscode.Range(startPos, endPos);
-                
+
                 allHighlights.push({
                     text: term.text,
                     index: match.index,
@@ -778,7 +601,7 @@ class HighlightManager {
         // 找到当前位置之前的高亮（循环查找）
         const currentOffset = document.offsetAt(currentPosition);
         let prevHighlight = null;
-        
+
         // 从后往前找，找到第一个小于当前位置的高亮
         for (let i = allHighlights.length - 1; i >= 0; i--) {
             if (allHighlights[i].index < currentOffset) {
@@ -786,7 +609,7 @@ class HighlightManager {
                 break;
             }
         }
-        
+
         // 如果当前位置前面没有高亮，则跳转到最后一个高亮（循环）
         if (!prevHighlight) {
             prevHighlight = allHighlights[allHighlights.length - 1];
@@ -1009,52 +832,25 @@ class HighlightManager {
         );
     }
 
-    /**
-     * 判断是否需要对大文件进行特殊处理
-     */
-    private shouldOptimizeForLargeFile(document: vscode.TextDocument): boolean {
-        if (!this.optimizationConfig.enabled) {
-            return false;
+    private updateDecorations(editor: vscode.TextEditor) {
+        const terms = this.getTerms();
+        if (terms.length === 0) {
+            // 如果没有高亮词，清空所有装饰
+            decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+            // 清空自定义颜色装饰
+            if (this.customDecorationTypes) {
+                this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+            }
+            this.highlightCache.delete(editor.document);
+            return;
         }
 
-        const fileSize = document.getText().length;
-        return fileSize > this.optimizationConfig.chunkSize;
-    }
-
-    /**
-     * 获取当前可视范围（带缓冲区）
-     */
-    private getVisibleRangeWithBuffer(editor: vscode.TextEditor): vscode.Range {
-        const visibleRanges = editor.visibleRanges;
-        if (visibleRanges.length === 0) {
-            return new vscode.Range(0, 0, 0, 0);
-        }
-
-        const visibleRange = visibleRanges[0];
-        const buffer = this.optimizationConfig.visibleRangeBuffer;
-
-        const startLine = Math.max(0, visibleRange.start.line - buffer);
-        const endLine = Math.min(editor.document.lineCount - 1, visibleRange.end.line + buffer);
-
-        return new vscode.Range(
-            new vscode.Position(startLine, 0),
-            new vscode.Position(endLine, editor.document.lineAt(endLine).text.length)
-        );
-    }
-
-    /**
-     * 分块搜索高亮词（用于大文件）
-     */
-    private searchHighlightsInChunks(
-        document: vscode.TextDocument,
-        terms: HighlightedTerm[],
-        searchRange?: vscode.Range
-    ): CachedHighlight[] {
+        // 统一使用全量更新
         const highlights: CachedHighlight[] = [];
-        const text = searchRange ? document.getText(searchRange) : document.getText();
-        const offset = searchRange ? document.offsetAt(searchRange.start) : 0;
+        const text = editor.document.getText();
 
         terms.forEach((term) => {
+            // 根据配置决定是否区分大小写
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
             const regexFlags = caseSensitive ? 'g' : 'gi';
             const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1063,8 +859,10 @@ class HighlightManager {
             let match;
 
             while ((match = regex.exec(text)) !== null) {
-                const startPos = document.positionAt(offset + match.index);
-                const endPos = document.positionAt(offset + match.index + match[0].length);
+                const startPos = editor.document.positionAt(match.index);
+                const endPos = editor.document.positionAt(
+                    match.index + match[0].length
+                );
                 ranges.push(new vscode.Range(startPos, endPos));
             }
 
@@ -1079,104 +877,11 @@ class HighlightManager {
             }
         });
 
-        return highlights;
-    }
+        // 缓存结果
+        this.highlightCache.set(editor.document, highlights);
 
-    /**
-     * 增量更新可视范围内的高亮
-     */
-    private updateVisibleRangeHighlights(editor: vscode.TextEditor) {
-        const terms = this.getTerms();
-        if (terms.length === 0) {
-            return;
-        }
-
-        const visibleRange = this.getVisibleRangeWithBuffer(editor);
-
-        // 只搜索可视范围内的高亮
-        const visibleHighlights = this.searchHighlightsInChunks(
-            editor.document,
-            terms,
-            visibleRange
-        );
-
-        // 获取缓存的高亮
-        const cachedHighlights = this.highlightCache.get(editor.document) || [];
-
-        // 合并可视范围内的高亮与缓存
-        const updatedHighlights = cachedHighlights.filter(highlight => {
-            // 保留不在当前可视范围内的缓存高亮
-            return !highlight.ranges.some(range => visibleRange.contains(range));
-        });
-
-        // 添加新的可视范围内的高亮
-        updatedHighlights.push(...visibleHighlights);
-
-        this.highlightCache.set(editor.document, updatedHighlights);
-        this.applyHighlightsToEditor(editor, updatedHighlights);
-
-        // 启动后台处理来渐进式处理整个文件
-        this.startBackgroundProcessing(editor);
-    }
-
-    /**
-     * 启动后台处理，渐进式处理整个大文件
-     */
-    private async startBackgroundProcessing(editor: vscode.TextEditor) {
-        const document = editor.document;
-
-        // 如果已经在处理中，则跳过
-        if (this.backgroundProcessing.get(document)) {
-            return;
-        }
-
-        // 如果文件不够大，不需要后台处理
-        if (!this.shouldOptimizeForLargeFile(document)) {
-            return;
-        }
-
-        this.backgroundProcessing.set(document, true);
-
-        try {
-            const terms = this.getTerms();
-            if (terms.length === 0) {
-                return;
-            }
-
-            const totalLines = document.lineCount;
-            const chunkLines = Math.max(100, Math.floor(totalLines / 20)); // 分成20个块，最少100行
-            let processedLines = 0;
-
-            while (processedLines < totalLines) {
-                const startLine = processedLines;
-                const endLine = Math.min(processedLines + chunkLines, totalLines - 1);
-
-                const chunkRange = new vscode.Range(
-                    new vscode.Position(startLine, 0),
-                    new vscode.Position(endLine, document.lineAt(endLine).text.length)
-                );
-
-                // 搜索当前块中的高亮
-                const chunkHighlights = this.searchHighlightsInChunks(document, terms, chunkRange);
-
-                // 获取当前缓存
-                const cachedHighlights = this.highlightCache.get(document) || [];
-
-                // 合并结果
-                const updatedHighlights = this.mergeHighlights(cachedHighlights, chunkHighlights);
-
-                // 更新缓存和应用高亮
-                this.highlightCache.set(document, updatedHighlights);
-                this.applyHighlightsToEditor(editor, updatedHighlights);
-
-                processedLines += chunkLines;
-
-                // 让出控制权，避免阻塞UI
-                await this.sleep(10);
-            }
-        } finally {
-            this.backgroundProcessing.set(document, false);
-        }
+        // 应用高亮到编辑器
+        this.applyHighlightsToEditor(editor, highlights);
     }
 
     /**
@@ -1215,65 +920,6 @@ class HighlightManager {
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-
-    private updateDecorations(editor: vscode.TextEditor) {
-        const terms = this.getTerms();
-        if (terms.length === 0) {
-            // 如果没有高亮词，清空所有装饰
-            decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
-            // 清空自定义颜色装饰
-            if (this.customDecorationTypes) {
-                this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
-            }
-            this.highlightCache.delete(editor.document);
-            return;
-        }
-
-        // 检查是否需要大文件优化
-        if (this.shouldOptimizeForLargeFile(editor.document)) {
-            // 对于大文件，只处理可视范围
-            this.updateVisibleRangeHighlights(editor);
-            return;
-        }
-
-        // 小文件使用原有的全量更新
-        const highlights: CachedHighlight[] = [];
-        const text = editor.document.getText();
-
-        terms.forEach((term) => {
-            // 根据配置决定是否区分大小写
-            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-            const regexFlags = caseSensitive ? 'g' : 'gi';
-            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
-            const ranges: vscode.Range[] = [];
-            let match;
-
-            while ((match = regex.exec(text)) !== null) {
-                const startPos = editor.document.positionAt(match.index);
-                const endPos = editor.document.positionAt(
-                    match.index + match[0].length
-                );
-                ranges.push(new vscode.Range(startPos, endPos));
-            }
-
-            if (ranges.length > 0) {
-                highlights.push({
-                    text: term.text,
-                    ranges: ranges,
-                    colorId: term.colorId,
-                    isCustomColor: term.isCustomColor,
-                    customColor: term.customColor
-                });
-            }
-        });
-
-        // 缓存结果
-        this.highlightCache.set(editor.document, highlights);
-
-        // 应用高亮到编辑器
-        this.applyHighlightsToEditor(editor, highlights);
-    }
 }
 
 /**
@@ -1286,3 +932,168 @@ function findWholeWord(text: string, searchText: string, caseSensitive: boolean 
     const match = regex.exec(text);
     return match ? match.index : -1;
 }
+
+// 激活扩展
+export function activate(context: vscode.ExtensionContext) {
+    console.log("Persistent Highlighter is now active!");
+    console.log("Active editor on activation:", vscode.window.activeTextEditor ? "Found" : "Not found");
+
+    const treeProvider = new HighlightsTreeProvider(context);
+    const highlightManager = new HighlightManager(context, treeProvider);
+
+    // 注册侧边栏视图
+    vscode.window.registerTreeDataProvider('highlightsView', treeProvider);
+
+    // 创建树视图
+    const treeView = vscode.window.createTreeView('highlightsView', {
+        treeDataProvider: treeProvider,
+        showCollapseAll: true
+    });
+
+    // 注册添加高亮的命令
+    const addHighlightCommand = vscode.commands.registerCommand(
+        "persistent-highlighter.addHighlight",
+        () => {
+            highlightManager.addHighlight();
+        }
+    );
+
+    // 注册移除高亮的命令
+    const removeHighlightCommand = vscode.commands.registerCommand(
+        "persistent-highlighter.removeHighlight",
+        () => {
+            highlightManager.removeHighlight();
+        }
+    );
+
+    context.subscriptions.push(addHighlightCommand);
+    context.subscriptions.push(removeHighlightCommand);
+
+    const toggleHighlightCommand = vscode.commands.registerCommand(
+        "persistent-highlighter.toggleHighlight",
+        () => {
+            highlightManager.toggleHighlight();
+        }
+    );
+
+    context.subscriptions.push(toggleHighlightCommand);
+
+    const clearAllHighlightsCommand = vscode.commands.registerCommand(
+        "persistent-highlighter.clearAllHighlights",
+        () => {
+            highlightManager.clearAllHighlights();
+        }
+    );
+
+    context.subscriptions.push(clearAllHighlightsCommand);
+
+    // 自定义颜色命令
+    const addHighlightWithCustomColorCommand = vscode.commands.registerCommand(
+        "persistent-highlighter.addHighlightWithCustomColor",
+        () => {
+            highlightManager.addHighlightWithCustomColor();
+        }
+    );
+
+    context.subscriptions.push(addHighlightWithCustomColorCommand);
+
+    // 侧边栏相关命令
+    const jumpToHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.jumpToHighlight',
+        (text: string) => {
+            highlightManager.jumpToHighlight(text);
+        }
+    );
+
+    const removeHighlightFromTreeCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.removeHighlightFromTree',
+        (item: HighlightItem) => {
+            treeProvider.removeHighlight(item.text);
+            highlightManager.refreshHighlights();
+            // 侧边栏的删除操作已经内置了refresh，这里不需要额外刷新
+        }
+    );
+
+    const editHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.editHighlight',
+        async (item: HighlightItem) => {
+            const newText = await vscode.window.showInputBox({
+                prompt: 'Edit highlight text',
+                value: item.text
+            });
+            if (newText && newText !== item.text) {
+                treeProvider.editHighlight(item.text, newText);
+                highlightManager.refreshHighlights();
+                // 侧边栏的编辑操作已经内置了refresh，这里不需要额外刷新
+            }
+        }
+    );
+
+    const refreshTreeCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.refreshTree',
+        () => {
+            treeProvider.refresh();
+        }
+    );
+
+
+    // 新增跳转到下一个/上一个高亮的命令
+    const jumpToNextHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.jumpToNextHighlight',
+        () => {
+            highlightManager.jumpToNextHighlight();
+        }
+    );
+
+    const jumpToPrevHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.jumpToPrevHighlight',
+        () => {
+            highlightManager.jumpToPrevHighlight();
+        }
+    );
+
+    // 右键菜单命令
+    const contextMenuAddHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuAddHighlight',
+        () => {
+            highlightManager.addHighlight();
+        }
+    );
+
+    const contextMenuRemoveHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuRemoveHighlight',
+        () => {
+            highlightManager.removeHighlight();
+        }
+    );
+
+    const contextMenuToggleHighlightCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuToggleHighlight',
+        () => {
+            highlightManager.toggleHighlight();
+        }
+    );
+
+    const contextMenuCustomColorCommand = vscode.commands.registerCommand(
+        'persistent-highlighter.contextMenuCustomColor',
+        () => {
+            highlightManager.addHighlightWithCustomColor();
+        }
+    );
+
+    context.subscriptions.push(
+        jumpToHighlightCommand,
+        removeHighlightFromTreeCommand,
+        editHighlightCommand,
+        refreshTreeCommand,
+        jumpToNextHighlightCommand,
+        jumpToPrevHighlightCommand,
+        contextMenuAddHighlightCommand,
+        contextMenuRemoveHighlightCommand,
+        contextMenuToggleHighlightCommand,
+        contextMenuCustomColorCommand,
+        treeView
+    );
+}
+
+export function deactivate() { }
