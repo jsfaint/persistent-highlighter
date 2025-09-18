@@ -509,9 +509,7 @@ class HighlightManager {
         const allHighlights: Array<{ text: string, index: number, range: vscode.Range }> = [];
 
         for (const term of terms) {
-            const regexFlags = caseSensitive ? 'g' : 'gi';
-            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
+            const regex = createHighlightRegex(term.text, caseSensitive);
             let match;
 
             while ((match = regex.exec(textContent)) !== null) {
@@ -572,9 +570,7 @@ class HighlightManager {
         const allHighlights: Array<{ text: string, index: number, range: vscode.Range }> = [];
 
         for (const term of terms) {
-            const regexFlags = caseSensitive ? 'g' : 'gi';
-            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
+            const regex = createHighlightRegex(term.text, caseSensitive);
             let match;
 
             while ((match = regex.exec(textContent)) !== null) {
@@ -690,9 +686,7 @@ class HighlightManager {
         const newHighlights: CachedHighlight[] = [];
         for (const term of terms) {
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-            const regexFlags = caseSensitive ? 'g' : 'gi';
-            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
+            const regex = createHighlightRegex(term.text, caseSensitive);
 
             let match;
             while ((match = regex.exec(affectedText)) !== null) {
@@ -852,9 +846,7 @@ class HighlightManager {
         terms.forEach((term) => {
             // 根据配置决定是否区分大小写
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-            const regexFlags = caseSensitive ? 'g' : 'gi';
-            const escapedText = term.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\b${escapedText}\\b`, regexFlags);
+            const regex = createHighlightRegex(term.text, caseSensitive);
             const ranges: vscode.Range[] = [];
             let match;
 
@@ -923,12 +915,30 @@ class HighlightManager {
 }
 
 /**
- * 全字匹配搜索函数
+ * 创建支持中英文的正则表达式
  */
-function findWholeWord(text: string, searchText: string, caseSensitive: boolean = false): number {
+function createHighlightRegex(searchText: string, caseSensitive: boolean = false): RegExp {
     const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const flags = caseSensitive ? 'g' : 'gi';
-    const regex = new RegExp(`\\b${escapedText}\\b`, flags);
+
+    // 检查是否包含非英文字符
+    const hasNonEnglish = /[^a-zA-Z0-9_]/.test(searchText);
+
+    if (hasNonEnglish) {
+        // 对于非英文文本，使用更灵活的边界匹配
+        // 使用 (?<!\w) 和 (?!\w) 来模拟词边界，但支持非英文字符
+        return new RegExp(`(?<!\\w)${escapedText}(?!\\w)`, flags);
+    } else {
+        // 对于英文文本，使用标准的 \b 边界
+        return new RegExp(`\\b${escapedText}\\b`, flags);
+    }
+}
+
+/**
+ * 全字匹配搜索函数 - 支持英文和非英文文本
+ */
+function findWholeWord(text: string, searchText: string, caseSensitive: boolean = false): number {
+    const regex = createHighlightRegex(searchText, caseSensitive);
     const match = regex.exec(text);
     return match ? match.index : -1;
 }
