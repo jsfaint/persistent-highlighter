@@ -637,8 +637,10 @@ class HighlightManager {
             return;
         }
 
-        // 计算受影响的范围
+        // 计算受影响的范围，考虑文本的插入和删除
         let affectedRange: vscode.Range | undefined;
+        let totalOffsetChange = 0;
+
         for (const change of contentChanges) {
             if (!affectedRange) {
                 affectedRange = change.range;
@@ -646,6 +648,11 @@ class HighlightManager {
                 // 扩展范围以包含所有变化
                 affectedRange = affectedRange.union(change.range);
             }
+
+            // 计算偏移量变化（用于调整现有高亮位置）
+            const oldLength = change.rangeLength;
+            const newLength = change.text.length;
+            totalOffsetChange += (newLength - oldLength);
         }
 
         if (!affectedRange) {
@@ -653,37 +660,52 @@ class HighlightManager {
         }
 
         // 扩展受影响的范围，考虑可能的高亮词边界
-        const startLine = Math.max(0, affectedRange.start.line - 1);
-        const endLine = Math.min(editor.document.lineCount - 1, affectedRange.end.line + 1);
+        const startLine = Math.max(0, affectedRange.start.line - 2);
+        const endLine = Math.min(editor.document.lineCount - 1, affectedRange.end.line + 2);
         const extendedRange = new vscode.Range(
             new vscode.Position(startLine, 0),
             new vscode.Position(endLine, editor.document.lineAt(endLine).text.length)
         );
 
-        // 获取受影响的文本
-        const affectedText = editor.document.getText(extendedRange);
-
-        // 更新缓存 - 移除完全在受影响范围内的现有高亮
+        // 更新缓存 - 调整受影响范围之外的高亮位置
         const updatedHighlights: CachedHighlight[] = [];
         for (const highlight of cachedHighlights) {
-            const newRanges = highlight.ranges.filter(range => {
-                // 如果高亮完全在受影响范围内，需要重新计算
-                if (extendedRange.contains(range)) {
-                    return false;
-                }
-                return true;
-            });
+            const adjustedRanges: vscode.Range[] = [];
 
-            if (newRanges.length > 0) {
+            for (const range of highlight.ranges) {
+                if (extendedRange.contains(range)) {
+                    // 如果高亮在受影响范围内，需要重新搜索
+                    continue;
+                } else if (range.start.isAfter(affectedRange!.end)) {
+                    // 如果高亮在变化之后，需要调整位置
+                    const startOffset = editor.document.offsetAt(range.start);
+                    const endOffset = editor.document.offsetAt(range.end);
+                    const newStartOffset = startOffset + totalOffsetChange;
+                    const newEndOffset = endOffset + totalOffsetChange;
+
+                    if (newStartOffset >= 0 && newEndOffset <= editor.document.getText().length) {
+                        const newStart = editor.document.positionAt(newStartOffset);
+                        const newEnd = editor.document.positionAt(newEndOffset);
+                        adjustedRanges.push(new vscode.Range(newStart, newEnd));
+                    }
+                } else {
+                    // 高亮在变化之前，保持不变
+                    adjustedRanges.push(range);
+                }
+            }
+
+            if (adjustedRanges.length > 0) {
                 updatedHighlights.push({
                     ...highlight,
-                    ranges: newRanges
+                    ranges: adjustedRanges
                 });
             }
         }
 
         // 在受影响的文本中重新搜索高亮词
+        const affectedText = editor.document.getText(extendedRange);
         const newHighlights: CachedHighlight[] = [];
+
         for (const term of terms) {
             const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
             const regex = createHighlightRegex(term.text, caseSensitive);
@@ -754,12 +776,15 @@ class HighlightManager {
 
         // 应用内置颜色
         colorHighlights.forEach((ranges, colorId) => {
-            editor.setDecorations(decorationTypes[colorId], ranges);
+            if (colorId < decorationTypes.length) {
+                editor.setDecorations(decorationTypes[colorId], ranges);
+            }
         });
 
         // 应用自定义颜色
         customHighlights.forEach(({ ranges, highlight }) => {
-            if (!this.customDecorationTypes!.has(highlight.text)) {
+            const colorKey = `${highlight.text}_${highlight.customColor!.light.backgroundColor}`;
+            if (!this.customDecorationTypes!.has(colorKey)) {
                 const customDecorationType = vscode.window.createTextEditorDecorationType({
                     light: {
                         ...highlight.customColor!.light,
@@ -773,9 +798,9 @@ class HighlightManager {
                     overviewRulerColor: highlight.customColor!.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
                     overviewRulerLane: vscode.OverviewRulerLane.Full
                 });
-                this.customDecorationTypes!.set(highlight.text, customDecorationType);
+                this.customDecorationTypes!.set(colorKey, customDecorationType);
             }
-            const decorationType = this.customDecorationTypes!.get(highlight.text)!;
+            const decorationType = this.customDecorationTypes!.get(colorKey)!;
             editor.setDecorations(decorationType, ranges);
         });
     }
