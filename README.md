@@ -4,6 +4,8 @@ A Visual Studio Code extension that allows you to permanently highlight text in 
 
 Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/items?itemName=jsfaint.persistent-highlighter)
 
+![screenshot](https://github.com/user-attachments/assets/84eddbb2-91a5-4ded-b524-d5187d67a82e)
+
 ## Features
 
 - **Multi-Language Support**: Now supports Chinese, Japanese, Korean, and other non-English text highlighting
@@ -114,6 +116,15 @@ The extension provides several configuration options to customize behavior:
 To modify these settings, go to VS Code Settings and search for "Persistent Highlighter".
 
 ## Recent Updates
+
+### Version 0.0.13
+
+- **Fixed Highlight Display Issues**: Resolved critical problems with highlight positioning after file modifications, including issues when adding spaces or making small text changes
+- **Simplified Update Logic**: Removed complex incremental update algorithm that was causing highlight misalignment, replaced with reliable full-document updates
+- **Enhanced Stability**: Eliminated race conditions and offset calculation errors that were causing highlights to shift incorrectly after text edits
+- **Code Cleanup**: Removed redundant `updateDecorationsIncremental` method for cleaner, more maintainable codebase
+- **Improved User Experience**: Highlights now remain correctly positioned regardless of text modifications, edits, or insertions
+- **Better Performance**: Streamlined update process reduces computational overhead while maintaining accuracy
 
 ### Version 0.0.12
 
