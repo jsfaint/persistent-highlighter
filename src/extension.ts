@@ -113,7 +113,7 @@ class HighlightManager {
             context.subscriptions
         );
 
-        // 监听文档内容的变化 - 使用增量更新
+        // 监听文档内容的变化
         vscode.workspace.onDidChangeTextDocument(
             (event) => {
                 const activeEditor = vscode.window.activeTextEditor;
@@ -121,7 +121,7 @@ class HighlightManager {
                     activeEditor &&
                     event.document === activeEditor.document
                 ) {
-                    this.updateDecorationsIncremental(activeEditor, event);
+                    this.updateDecorations(activeEditor);
                 }
             },
             null,
@@ -617,133 +617,7 @@ class HighlightManager {
         }
     }
 
-    private updateDecorationsIncremental(editor: vscode.TextEditor, event: vscode.TextDocumentChangeEvent) {
-        const terms = this.getTerms();
-        if (terms.length === 0) {
-            return;
-        }
-
-        // 获取缓存的高亮信息
-        const cachedHighlights = this.highlightCache.get(editor.document) || [];
-        if (cachedHighlights.length === 0) {
-            // 如果没有缓存，退回到全量更新
-            this.updateDecorations(editor);
-            return;
-        }
-
-        // 获取文档变化信息
-        const contentChanges = event.contentChanges;
-        if (contentChanges.length === 0) {
-            return;
-        }
-
-        // 计算受影响的范围，考虑文本的插入和删除
-        let affectedRange: vscode.Range | undefined;
-        let totalOffsetChange = 0;
-
-        for (const change of contentChanges) {
-            if (!affectedRange) {
-                affectedRange = change.range;
-            } else {
-                // 扩展范围以包含所有变化
-                affectedRange = affectedRange.union(change.range);
-            }
-
-            // 计算偏移量变化（用于调整现有高亮位置）
-            const oldLength = change.rangeLength;
-            const newLength = change.text.length;
-            totalOffsetChange += (newLength - oldLength);
-        }
-
-        if (!affectedRange) {
-            return;
-        }
-
-        // 扩展受影响的范围，考虑可能的高亮词边界
-        const startLine = Math.max(0, affectedRange.start.line - 2);
-        const endLine = Math.min(editor.document.lineCount - 1, affectedRange.end.line + 2);
-        const extendedRange = new vscode.Range(
-            new vscode.Position(startLine, 0),
-            new vscode.Position(endLine, editor.document.lineAt(endLine).text.length)
-        );
-
-        // 更新缓存 - 调整受影响范围之外的高亮位置
-        const updatedHighlights: CachedHighlight[] = [];
-        for (const highlight of cachedHighlights) {
-            const adjustedRanges: vscode.Range[] = [];
-
-            for (const range of highlight.ranges) {
-                if (extendedRange.contains(range)) {
-                    // 如果高亮在受影响范围内，需要重新搜索
-                    continue;
-                } else if (range.start.isAfter(affectedRange!.end)) {
-                    // 如果高亮在变化之后，需要调整位置
-                    const startOffset = editor.document.offsetAt(range.start);
-                    const endOffset = editor.document.offsetAt(range.end);
-                    const newStartOffset = startOffset + totalOffsetChange;
-                    const newEndOffset = endOffset + totalOffsetChange;
-
-                    if (newStartOffset >= 0 && newEndOffset <= editor.document.getText().length) {
-                        const newStart = editor.document.positionAt(newStartOffset);
-                        const newEnd = editor.document.positionAt(newEndOffset);
-                        adjustedRanges.push(new vscode.Range(newStart, newEnd));
-                    }
-                } else {
-                    // 高亮在变化之前，保持不变
-                    adjustedRanges.push(range);
-                }
-            }
-
-            if (adjustedRanges.length > 0) {
-                updatedHighlights.push({
-                    ...highlight,
-                    ranges: adjustedRanges
-                });
-            }
-        }
-
-        // 在受影响的文本中重新搜索高亮词
-        const affectedText = editor.document.getText(extendedRange);
-        const newHighlights: CachedHighlight[] = [];
-
-        for (const term of terms) {
-            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-            const regex = createHighlightRegex(term.text, caseSensitive);
-
-            let match;
-            while ((match = regex.exec(affectedText)) !== null) {
-                const startPos = editor.document.positionAt(
-                    editor.document.offsetAt(extendedRange.start) + match.index
-                );
-                const endPos = editor.document.positionAt(
-                    editor.document.offsetAt(extendedRange.start) + match.index + match[0].length
-                );
-                const range = new vscode.Range(startPos, endPos);
-
-                // 检查是否已存在相同的高亮
-                const existingHighlight = updatedHighlights.find(h => h.text === term.text);
-                if (existingHighlight) {
-                    existingHighlight.ranges.push(range);
-                } else {
-                    newHighlights.push({
-                        text: term.text,
-                        ranges: [range],
-                        colorId: term.colorId,
-                        isCustomColor: term.isCustomColor,
-                        customColor: term.customColor
-                    });
-                }
-            }
-        }
-
-        // 合并更新后的高亮
-        const finalHighlights = [...updatedHighlights, ...newHighlights];
-        this.highlightCache.set(editor.document, finalHighlights);
-
-        // 应用高亮到编辑器
-        this.applyHighlightsToEditor(editor, finalHighlights);
-    }
-
+    
     private applyHighlightsToEditor(editor: vscode.TextEditor, highlights: CachedHighlight[]) {
         // 清空现有装饰
         decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
