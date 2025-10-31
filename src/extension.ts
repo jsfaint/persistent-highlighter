@@ -247,17 +247,11 @@ class HighlightManager {
     }
 
     public toggleHighlight() {
-        console.log("toggleHighlight called");
-        console.log("vscode.window.activeTextEditor:", vscode.window.activeTextEditor ? "Found" : "Not found");
-
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
-            console.log("No active editor found in toggleHighlight");
-
             // 尝试从visibleTextEditors中获取第一个编辑器
             const visibleEditors = vscode.window.visibleTextEditors;
             if (visibleEditors.length > 0) {
-                console.log("Found", visibleEditors.length, "visible editors, using the first one");
                 this.toggleHighlightForEditor(visibleEditors[0]);
                 return;
             }
@@ -270,7 +264,6 @@ class HighlightManager {
     }
 
     private toggleHighlightForEditor(editor: vscode.TextEditor) {
-        console.log("Processing toggleHighlight for editor:", editor.document.fileName);
 
         let textToToggle: string | undefined;
         const selection = editor.selection;
@@ -844,8 +837,6 @@ function findWholeWord(text: string, searchText: string, caseSensitive: boolean 
 
 // 激活扩展
 export function activate(context: vscode.ExtensionContext) {
-    console.log("Persistent Highlighter is now active!");
-    console.log("Active editor on activation:", vscode.window.activeTextEditor ? "Found" : "Not found");
 
     const treeProvider = new HighlightsTreeProvider(context);
     const highlightManager = new HighlightManager(context, treeProvider);
