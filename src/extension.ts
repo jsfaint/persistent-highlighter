@@ -377,10 +377,22 @@ class HighlightManager {
             return; // 用户取消了选择
         }
 
-        // 将hex颜色转换为rgba，设置透明度
+        // 验证并解析自定义颜色
+        if (!customColorHex || !customColorHex.match(/^#[0-9A-Fa-f]{6}$/)) {
+            vscode.window.showErrorMessage('Invalid color format. Please use hex format #RRGGBB.');
+            return;
+        }
+
+        // 安全地将hex颜色转换为rgba，设置透明度
         const r = parseInt(customColorHex.slice(1, 3), 16);
         const g = parseInt(customColorHex.slice(3, 5), 16);
         const b = parseInt(customColorHex.slice(5, 7), 16);
+
+        // 验证解析结果
+        if (isNaN(r) || isNaN(g) || isNaN(b)) {
+            vscode.window.showErrorMessage('Invalid color values. Please try again.');
+            return;
+        }
 
         const customColor = {
             light: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.4)` },
