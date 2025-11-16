@@ -264,9 +264,39 @@ class HighlightManager {
     }
 
     private toggleHighlightForEditor(editor: vscode.TextEditor) {
-
-        let textToToggle: string | undefined;
         const selection = editor.selection;
+        const currentPosition = selection.active;
+
+        // 优先检查当前位置是否在高亮范围内
+        const highlightsAtPosition = this.findHighlightsAtPosition(editor, currentPosition);
+
+        if (highlightsAtPosition.length > 0) {
+            // 如果当前位置有高亮，移除第一个高亮（通常不会有重叠的高亮）
+            const textToRemove = highlightsAtPosition[0];
+            const terms = this.getTerms();
+            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+
+            const termIndex = terms.findIndex(
+                (t) => caseSensitive ? t.text === textToRemove : t.text.toLowerCase() === textToRemove.toLowerCase()
+            );
+
+            if (termIndex !== -1) {
+                terms.splice(termIndex, 1);
+                this.context.globalState.update(GLOBAL_STATE_KEY, terms);
+                vscode.window.visibleTextEditors.forEach((editor) =>
+                    this.updateDecorations(editor)
+                );
+
+                // 刷新侧边栏
+                if (this.treeProvider) {
+                    this.treeProvider.refresh();
+                }
+                return;
+            }
+        }
+
+        // 如果当前位置没有高亮，则按照原有逻辑添加高亮
+        let textToToggle: string | undefined;
 
         if (!selection.isEmpty) {
             textToToggle = editor.document.getText(selection);
@@ -292,13 +322,13 @@ class HighlightManager {
         const terms = this.getTerms();
         const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
 
-        // 统一的大小写敏感比较逻辑
+        // 检查该文本是否已经被高亮（避免重复添加）
         const termIndex = terms.findIndex(
             (t) => caseSensitive ? t.text === textToToggle : t.text.toLowerCase() === textToToggle.toLowerCase()
         );
 
         if (termIndex !== -1) {
-            // Term exists, so remove it
+            // 如果该文本已经被高亮，但当前位置没有被高亮，则移除该高亮
             terms.splice(termIndex, 1);
             this.context.globalState.update(GLOBAL_STATE_KEY, terms);
             vscode.window.visibleTextEditors.forEach((editor) =>
@@ -310,7 +340,7 @@ class HighlightManager {
                 this.treeProvider.refresh();
             }
         } else {
-            // Term does not exist, so add it
+            // 添加新的高亮
             const colorId = terms.length % colorPool.length;
             terms.push({ text: textToToggle, colorId });
             this.context.globalState.update(GLOBAL_STATE_KEY, terms);
@@ -323,6 +353,44 @@ class HighlightManager {
                 this.treeProvider.refresh();
             }
         }
+    }
+
+    /**
+     * 查找指定位置的所有高亮
+     */
+    private findHighlightsAtPosition(editor: vscode.TextEditor, position: vscode.Position): string[] {
+        const terms = this.getTerms();
+        if (terms.length === 0) {
+            return [];
+        }
+
+        const document = editor.document;
+        const offset = document.offsetAt(position);
+        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+        const highlightedTexts: string[] = [];
+
+        for (const term of terms) {
+            const regex = createHighlightRegex(term.text, caseSensitive);
+            let match;
+
+            while ((match = regex.exec(document.getText())) !== null) {
+                const matchStart = match.index;
+                const matchEnd = matchStart + match[0].length;
+
+                // 检查光标位置是否在这个高亮范围内
+                if (offset >= matchStart && offset <= matchEnd) {
+                    highlightedTexts.push(term.text);
+                    break; // 找到一个匹配就够了
+                }
+
+                // 防止无限循环
+                if (match.index === regex.lastIndex) {
+                    regex.lastIndex++;
+                }
+            }
+        }
+
+        return highlightedTexts;
     }
 
     public clearAllHighlights() {
