@@ -88,7 +88,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                     } else {
                         return fileContent.toLowerCase().includes(term.text.toLowerCase());
                     }
-                } catch (error) {
+                } catch {
                     return false;
                 }
             });

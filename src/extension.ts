@@ -286,10 +286,15 @@ class HighlightManager {
             return;
         }
 
+        // 清理选中的文本，移除首尾空白字符
+        textToToggle = textToToggle.trim();
+
         const terms = this.getTerms();
         const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+
+        // 统一的大小写敏感比较逻辑
         const termIndex = terms.findIndex(
-            (t) => caseSensitive ? t.text === textToToggle : t.text.toLowerCase() === textToToggle!.toLowerCase()
+            (t) => caseSensitive ? t.text === textToToggle : t.text.toLowerCase() === textToToggle.toLowerCase()
         );
 
         if (termIndex !== -1) {
