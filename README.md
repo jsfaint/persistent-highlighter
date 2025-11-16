@@ -97,13 +97,6 @@ You can now access highlighting operations directly from the editor's right-clic
 
 The extension provides several configuration options to customize behavior:
 
-### Performance Settings
-
-- `persistent-highlighter.enableLargeFileOptimization`: Enable optimization for large files (default: true)
-- `persistent-highlighter.chunkSize`: Chunk size in characters for large file processing (default: 50000)
-- `persistent-highlighter.maxFileSize`: Maximum file size in characters before applying optimization (default: 1000000)
-- `persistent-highlighter.visibleRangeBuffer`: Number of lines to buffer around visible range for large files (default: 100)
-
 ### Search Settings
 
 - `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for highlights (default: false)
@@ -115,7 +108,37 @@ The extension provides several configuration options to customize behavior:
 
 To modify these settings, go to VS Code Settings and search for "Persistent Highlighter".
 
+## Preset Color Palette
+
+The extension offers 18 carefully selected preset colors:
+
+- **Coral** (#FF6B6B)
+- **Turquoise** (#4ECDC4)
+- **Sky Blue** (#45B7D1)
+- **Mint** (#96CEB4)
+- **Light Yellow** (#FFEAA7)
+- **Plum** (#DDA0DD)
+- **Seafoam** (#98D8C8)
+- **Golden** (#F7DC6F)
+- **Lavender** (#BB8FCE)
+- **Light Blue** (#85C1E9)
+- **Apricot** (#F8C471)
+- **Light Green** (#82E0AA)
+- **Salmon** (#F1948A)
+- **Light Purple** (#D7BDE2)
+- **Pale Green** (#A9DFBF)
+- **Peach** (#FAD7A0)
+- **Pale Blue** (#AED6F1)
+- **Rose** (#F5B7B1)
+
 ## Recent Updates
+
+### Version 0.0.14
+
+- **Fixed Highlight Display After Selection**: Resolved issue where highlights would not properly display after text selection operations
+- **Improved Toggle Behavior**: Enhanced highlight toggle functionality to prioritize removing highlights over adding new ones for better user experience
+- **Code Quality Improvements**: Fixed linting issues and improved overall code maintainability
+- **Better User Feedback**: Improved interaction feedback for highlight operations
 
 ### Version 0.0.13
 
@@ -198,7 +221,7 @@ npm run watch
 npm test
 
 # Package extension
-vsce package
+npm run package
 ```
 
 ### Architecture
@@ -213,4 +236,21 @@ The extension uses a comprehensive architecture with:
 - Performance optimization: Intelligent caching and large file handling
 - Custom color management: Dynamic decoration type creation for custom colors
 - Incremental updates: Efficient processing of document changes without full re-rendering
-  sing of document changes without full re-rendering
+
+## License
+
+This project is open source. Please see the LICENSE file for details.
+
+## Contributing
+
+Welcome to submit Issues and Pull Requests!
+
+## Links
+
+- **VS Code Marketplace**: [Persistent Highlighter](https://marketplace.visualstudio.com/items?itemName=jsfaint.persistent-highlighter)
+- **GitHub Repository**: [jsfaint/persistent-highlighter](https://github.com/jsfaint/persistent-highlighter)
+- **Issue Reporting**: [GitHub Issues](https://github.com/jsfaint/persistent-highlighter/issues)
+
+---
+
+⭐ If this extension helps you, please consider giving us a five-star rating on the VS Code Marketplace!
