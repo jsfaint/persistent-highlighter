@@ -44,17 +44,29 @@ const decorationTypes = colorPool.map((color) =>
 );
 
 // 定义存储在 globalState 中的对象结构
-type HighlightedTerm = {
+interface HighlightColor {
+    light: { backgroundColor: string };
+    dark: { backgroundColor: string };
+}
+
+interface HighlightedTerm {
     text: string;
     colorId: number;
     isCustomColor?: boolean;
-    customColor?: {
-        light: { backgroundColor: string };
-        dark: { backgroundColor: string };
-    };
-};
+    customColor?: HighlightColor;
+}
 
+interface HighlightPosition {
+    text: string;
+    index: number;
+    range: vscode.Range;
+}
+
+// 常量定义
 const GLOBAL_STATE_KEY = "persistentHighlighterTerms";
+const CUSTOM_COLOR_ID_OFFSET = colorPool.length;
+const DEFAULT_LIGHT_OPACITY = 0.4;
+const DEFAULT_DARK_OPACITY = 0.3;
 
 // 预设调色板 - 18种精选颜色
 const presetColorPalette = [
@@ -84,10 +96,7 @@ interface CachedHighlight {
     ranges: vscode.Range[];
     colorId: number;
     isCustomColor?: boolean;
-    customColor?: {
-        light: { backgroundColor: string };
-        dark: { backgroundColor: string };
-    };
+    customColor?: HighlightColor;
 }
 
 class HighlightManager {
@@ -144,106 +153,53 @@ class HighlightManager {
     }
 
     public addHighlight() {
-        const editor = vscode.window.activeTextEditor;
+        const editor = this.validateActiveEditor();
         if (!editor) {
-            vscode.window.showWarningMessage("No active editor found.");
             return;
         }
 
-        let textToHighlight: string | undefined;
-        const selection = editor.selection;
-
-        if (!selection.isEmpty) {
-            textToHighlight = editor.document.getText(selection);
-        } else {
-            const wordRange = editor.document.getWordRangeAtPosition(
-                selection.active
-            );
-            if (wordRange) {
-                textToHighlight = editor.document.getText(wordRange);
-            }
-        }
-
+        const textToHighlight = this.getSelectedText(editor);
         if (!textToHighlight || textToHighlight.trim() === "") {
-            vscode.window.showWarningMessage(
-                "No text selected or word under cursor."
-            );
+            vscode.window.showWarningMessage("No text selected or word under cursor.");
             return;
         }
 
         const terms = this.getTerms();
-        if (terms.some((t) => t.text === textToHighlight)) {
-            vscode.window.showInformationMessage(
-                `'${textToHighlight}' is already highlighted.`
-            );
+        const caseSensitive = this.getCaseSensitiveConfig();
+
+        if (terms.some((t) => caseSensitive ? t.text === textToHighlight : t.text.toLowerCase() === textToHighlight.toLowerCase())) {
+            vscode.window.showInformationMessage(`'${textToHighlight}' is already highlighted.`);
             return;
         }
 
         const colorId = terms.length % colorPool.length;
-        terms.push({ text: textToHighlight, colorId });
+        terms.push({ text: textToHighlight.trim(), colorId });
 
-        this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-        vscode.window.visibleTextEditors.forEach((editor) =>
-            this.updateDecorations(editor)
-        );
-
-        // 刷新侧边栏
-        if (this.treeProvider) {
-            this.treeProvider.refresh();
-        }
+        this.updateGlobalState(terms);
     }
 
     public removeHighlight() {
-        const editor = vscode.window.activeTextEditor;
+        const editor = this.validateActiveEditor();
         if (!editor) {
-            vscode.window.showWarningMessage("No active editor found.");
             return;
         }
 
-        let textToRemove: string | undefined;
-        const selection = editor.selection;
-
-        if (!selection.isEmpty) {
-            textToRemove = editor.document.getText(selection);
-        } else {
-            const wordRange = editor.document.getWordRangeAtPosition(
-                selection.active
-            );
-            if (wordRange) {
-                textToRemove = editor.document.getText(wordRange);
-            }
-        }
-
+        const textToRemove = this.getSelectedText(editor);
         if (!textToRemove) {
-            vscode.window.showWarningMessage(
-                "No text selected or word under cursor to remove."
-            );
+            vscode.window.showWarningMessage("No text selected or word under cursor to remove.");
             return;
         }
 
         const terms = this.getTerms();
-        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-        const termIndex = terms.findIndex(
-            (t) => caseSensitive ? t.text === textToRemove : t.text.toLowerCase() === textToRemove.toLowerCase()
-        );
+        const termIndex = this.findTermIndex(terms, textToRemove);
 
         if (termIndex === -1) {
-            vscode.window.showInformationMessage(
-                `'${textToRemove}' is not currently highlighted.`
-            );
+            vscode.window.showInformationMessage(`'${textToRemove}' is not currently highlighted.`);
             return;
         }
 
         terms.splice(termIndex, 1);
-        this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-        vscode.window.visibleTextEditors.forEach((editor) =>
-            this.updateDecorations(editor)
-        );
-
-        // 刷新侧边栏
-        if (this.treeProvider) {
-            this.treeProvider.refresh();
-        }
+        this.updateGlobalState(terms);
     }
 
     public toggleHighlight() {
@@ -264,8 +220,7 @@ class HighlightManager {
     }
 
     private toggleHighlightForEditor(editor: vscode.TextEditor) {
-        const selection = editor.selection;
-        const currentPosition = selection.active;
+        const currentPosition = editor.selection.active;
 
         // 优先检查当前位置是否在高亮范围内
         const highlightsAtPosition = this.findHighlightsAtPosition(editor, currentPosition);
@@ -274,85 +229,35 @@ class HighlightManager {
             // 如果当前位置有高亮，移除第一个高亮（通常不会有重叠的高亮）
             const textToRemove = highlightsAtPosition[0];
             const terms = this.getTerms();
-            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-
-            const termIndex = terms.findIndex(
-                (t) => caseSensitive ? t.text === textToRemove : t.text.toLowerCase() === textToRemove.toLowerCase()
-            );
+            const termIndex = this.findTermIndex(terms, textToRemove);
 
             if (termIndex !== -1) {
                 terms.splice(termIndex, 1);
-                this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-                vscode.window.visibleTextEditors.forEach((editor) =>
-                    this.updateDecorations(editor)
-                );
-
-                // 刷新侧边栏
-                if (this.treeProvider) {
-                    this.treeProvider.refresh();
-                }
-                return;
+                this.updateGlobalState(terms);
             }
-        }
-
-        // 如果当前位置没有高亮，则按照原有逻辑添加高亮
-        let textToToggle: string | undefined;
-
-        if (!selection.isEmpty) {
-            textToToggle = editor.document.getText(selection);
-        } else {
-            const wordRange = editor.document.getWordRangeAtPosition(
-                selection.active
-            );
-            if (wordRange) {
-                textToToggle = editor.document.getText(wordRange);
-            }
-        }
-
-        if (!textToToggle || textToToggle.trim() === "") {
-            vscode.window.showWarningMessage(
-                "No text selected or word under cursor."
-            );
             return;
         }
 
-        // 清理选中的文本，移除首尾空白字符
-        textToToggle = textToToggle.trim();
+        // 如果当前位置没有高亮，则按照原有逻辑添加高亮
+        const textToToggle = this.getSelectedText(editor);
+        if (!textToToggle || textToToggle.trim() === "") {
+            vscode.window.showWarningMessage("No text selected or word under cursor.");
+            return;
+        }
 
         const terms = this.getTerms();
-        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-
-        // 检查该文本是否已经被高亮（避免重复添加）
-        const termIndex = terms.findIndex(
-            (t) => caseSensitive ? t.text === textToToggle : t.text.toLowerCase() === textToToggle.toLowerCase()
-        );
+        const termIndex = this.findTermIndex(terms, textToToggle.trim());
 
         if (termIndex !== -1) {
             // 如果该文本已经被高亮，但当前位置没有被高亮，则移除该高亮
             terms.splice(termIndex, 1);
-            this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-            vscode.window.visibleTextEditors.forEach((editor) =>
-                this.updateDecorations(editor)
-            );
-
-            // 刷新侧边栏
-            if (this.treeProvider) {
-                this.treeProvider.refresh();
-            }
         } else {
             // 添加新的高亮
             const colorId = terms.length % colorPool.length;
-            terms.push({ text: textToToggle, colorId });
-            this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-            vscode.window.visibleTextEditors.forEach((editor) =>
-                this.updateDecorations(editor)
-            );
-
-            // 刷新侧边栏
-            if (this.treeProvider) {
-                this.treeProvider.refresh();
-            }
+            terms.push({ text: textToToggle.trim(), colorId });
         }
+
+        this.updateGlobalState(terms);
     }
 
     /**
@@ -366,7 +271,7 @@ class HighlightManager {
 
         const document = editor.document;
         const offset = document.offsetAt(position);
-        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+        const caseSensitive = this.getCaseSensitiveConfig();
         const highlightedTexts: string[] = [];
 
         for (const term of terms) {
@@ -400,44 +305,21 @@ class HighlightManager {
             return;
         }
 
-        this.context.globalState.update(GLOBAL_STATE_KEY, []);
-        vscode.window.visibleTextEditors.forEach((editor) =>
-            this.updateDecorations(editor)
-        );
-
-        // 刷新侧边栏
-        if (this.treeProvider) {
-            this.treeProvider.refresh();
-        }
-
+        this.updateGlobalState([]);
         vscode.window.showInformationMessage("All highlights have been cleared.");
     }
 
     public refreshHighlights(): void {
-        vscode.window.visibleTextEditors.forEach((editor) =>
-            this.updateDecorations(editor)
-        );
+        this.refreshAllEditors();
     }
 
     public async addHighlightWithCustomColor() {
-        const editor = vscode.window.activeTextEditor;
+        const editor = this.validateActiveEditor();
         if (!editor) {
-            vscode.window.showWarningMessage("No active editor found.");
             return;
         }
 
-        let textToHighlight: string | undefined;
-        const selection = editor.selection;
-
-        if (!selection.isEmpty) {
-            textToHighlight = editor.document.getText(selection);
-        } else {
-            const wordRange = editor.document.getWordRangeAtPosition(selection.active);
-            if (wordRange) {
-                textToHighlight = editor.document.getText(wordRange);
-            }
-        }
-
+        const textToHighlight = this.getSelectedText(editor);
         if (!textToHighlight || textToHighlight.trim() === "") {
             vscode.window.showWarningMessage("No text selected or word under cursor.");
             return;
@@ -471,13 +353,10 @@ class HighlightManager {
             light: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.4)` },
             dark: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.3)` }
         };
-        const colorId = colorPool.length; // 使用一个超出内置颜色范围的ID
+        const colorId = CUSTOM_COLOR_ID_OFFSET; // 使用自定义颜色ID偏移
 
         const terms = this.getTerms();
-        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-        const termIndex = terms.findIndex(
-            (t) => caseSensitive ? t.text === textToHighlight : t.text.toLowerCase() === textToHighlight.toLowerCase()
-        );
+        const termIndex = this.findTermIndex(terms, textToHighlight);
 
         if (termIndex !== -1) {
             // 更新现有高亮的颜色
@@ -497,19 +376,7 @@ class HighlightManager {
         this.context.globalState.update(GLOBAL_STATE_KEY, terms);
 
         // 创建新的decoration type
-        const customDecorationType = vscode.window.createTextEditorDecorationType({
-            light: {
-                ...customColor.light,
-                color: "#000000",
-            },
-            dark: {
-                ...customColor.dark,
-                color: "#FFFFFF",
-            },
-            borderRadius: "2px",
-            overviewRulerColor: customColor.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
-            overviewRulerLane: vscode.OverviewRulerLane.Full
-        });
+        const customDecorationType = this.createCustomDecorationType(customColor);
 
         // 存储自定义颜色decoration type
         if (!this.customDecorationTypes) {
@@ -517,14 +384,8 @@ class HighlightManager {
         }
         this.customDecorationTypes.set(textToHighlight, customDecorationType);
 
-        vscode.window.visibleTextEditors.forEach((editor) =>
-            this.updateDecorations(editor)
-        );
-
-        // 刷新侧边栏
-        if (this.treeProvider) {
-            this.treeProvider.refresh();
-        }
+        this.refreshAllEditors();
+        this.refreshSidebar();
 
         vscode.window.showInformationMessage(`Highlight added with custom color: ${customColorHex}`);
     }
@@ -536,14 +397,13 @@ class HighlightManager {
             return;
         }
 
-        const editor = vscode.window.activeTextEditor;
+        const editor = this.validateActiveEditor();
         if (!editor) {
-            vscode.window.showWarningMessage("No active editor found.");
             return;
         }
 
         const textContent = editor.document.getText();
-        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+        const caseSensitive = this.getCaseSensitiveConfig();
 
         let index: number;
         try {
@@ -566,9 +426,8 @@ class HighlightManager {
     }
 
     public jumpToNextHighlight(): void {
-        const editor = vscode.window.activeTextEditor;
+        const editor = this.validateActiveEditor();
         if (!editor) {
-            vscode.window.showWarningMessage("No active editor found.");
             return;
         }
 
@@ -578,42 +437,18 @@ class HighlightManager {
             return;
         }
 
-        const currentPosition = editor.selection.active;
-        const document = editor.document;
-        const textContent = document.getText();
-        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-
-        // 获取当前文件中所有高亮的位置
-        const allHighlights: Array<{ text: string, index: number, range: vscode.Range }> = [];
-
-        for (const term of terms) {
-            const regex = createHighlightRegex(term.text, caseSensitive);
-            let match;
-
-            while ((match = regex.exec(textContent)) !== null) {
-                const startPos = document.positionAt(match.index);
-                const endPos = document.positionAt(match.index + match[0].length);
-                const range = new vscode.Range(startPos, endPos);
-
-                allHighlights.push({
-                    text: term.text,
-                    index: match.index,
-                    range: range
-                });
-            }
-        }
-
+        const allHighlights = this.findAllHighlightsInEditor(editor, terms);
         if (allHighlights.length === 0) {
             vscode.window.showInformationMessage("No highlights found in current file.");
             return;
         }
 
         // 按位置排序
-        allHighlights.sort((a, b) => a.index - b.index);
+        allHighlights.sort((a: HighlightPosition, b: HighlightPosition) => a.index - b.index);
 
         // 找到当前位置之后的高亮（循环查找）
-        const currentOffset = document.offsetAt(currentPosition);
-        let nextHighlight = allHighlights.find(h => h.index > currentOffset);
+        const currentOffset = editor.document.offsetAt(editor.selection.active);
+        let nextHighlight = allHighlights.find((h: HighlightPosition) => h.index > currentOffset);
 
         // 如果当前位置后面没有高亮，则跳转到第一个高亮（循环）
         if (!nextHighlight) {
@@ -627,9 +462,8 @@ class HighlightManager {
     }
 
     public jumpToPrevHighlight(): void {
-        const editor = vscode.window.activeTextEditor;
+        const editor = this.validateActiveEditor();
         if (!editor) {
-            vscode.window.showWarningMessage("No active editor found.");
             return;
         }
 
@@ -639,42 +473,18 @@ class HighlightManager {
             return;
         }
 
-        const currentPosition = editor.selection.active;
-        const document = editor.document;
-        const textContent = document.getText();
-        const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-
-        // 获取当前文件中所有高亮的位置
-        const allHighlights: Array<{ text: string, index: number, range: vscode.Range }> = [];
-
-        for (const term of terms) {
-            const regex = createHighlightRegex(term.text, caseSensitive);
-            let match;
-
-            while ((match = regex.exec(textContent)) !== null) {
-                const startPos = document.positionAt(match.index);
-                const endPos = document.positionAt(match.index + match[0].length);
-                const range = new vscode.Range(startPos, endPos);
-
-                allHighlights.push({
-                    text: term.text,
-                    index: match.index,
-                    range: range
-                });
-            }
-        }
-
+        const allHighlights = this.findAllHighlightsInEditor(editor, terms);
         if (allHighlights.length === 0) {
             vscode.window.showInformationMessage("No highlights found in current file.");
             return;
         }
 
         // 按位置排序
-        allHighlights.sort((a, b) => a.index - b.index);
+        allHighlights.sort((a: HighlightPosition, b: HighlightPosition) => a.index - b.index);
 
         // 找到当前位置之前的高亮（循环查找）
-        const currentOffset = document.offsetAt(currentPosition);
-        let prevHighlight = null;
+        const currentOffset = editor.document.offsetAt(editor.selection.active);
+        let prevHighlight: HighlightPosition | null = null;
 
         // 从后往前找，找到第一个小于当前位置的高亮
         for (let i = allHighlights.length - 1; i >= 0; i--) {
@@ -737,19 +547,7 @@ class HighlightManager {
         customHighlights.forEach(({ ranges, highlight }) => {
             const colorKey = `${highlight.text}_${highlight.customColor!.light.backgroundColor}`;
             if (!this.customDecorationTypes!.has(colorKey)) {
-                const customDecorationType = vscode.window.createTextEditorDecorationType({
-                    light: {
-                        ...highlight.customColor!.light,
-                        color: "#000000",
-                    },
-                    dark: {
-                        ...highlight.customColor!.dark,
-                        color: "#FFFFFF",
-                    },
-                    borderRadius: "2px",
-                    overviewRulerColor: highlight.customColor!.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
-                    overviewRulerLane: vscode.OverviewRulerLane.Full
-                });
+                const customDecorationType = this.createCustomDecorationType(highlight.customColor!);
                 this.customDecorationTypes!.set(colorKey, customDecorationType);
             }
             const decorationType = this.customDecorationTypes!.get(colorKey)!;
@@ -819,10 +617,9 @@ class HighlightManager {
         // 统一使用全量更新
         const highlights: CachedHighlight[] = [];
         const text = editor.document.getText();
+        const caseSensitive = this.getCaseSensitiveConfig();
 
         terms.forEach((term) => {
-            // 根据配置决定是否区分大小写
-            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
             const regex = createHighlightRegex(term.text, caseSensitive);
             const ranges: vscode.Range[] = [];
             let match;
@@ -854,40 +651,124 @@ class HighlightManager {
     }
 
     /**
-     * 合并高亮结果
+     * 获取大小写敏感配置
      */
-    private mergeHighlights(existing: CachedHighlight[], newHighlights: CachedHighlight[]): CachedHighlight[] {
-        const highlightMap = new Map<string, CachedHighlight>();
-
-        // 添加现有的高亮
-        existing.forEach(highlight => {
-            highlightMap.set(highlight.text, {
-                ...highlight,
-                ranges: [...highlight.ranges]
-            });
-        });
-
-        // 合并新的高亮
-        newHighlights.forEach(newHighlight => {
-            const existing = highlightMap.get(newHighlight.text);
-            if (existing) {
-                existing.ranges.push(...newHighlight.ranges);
-            } else {
-                highlightMap.set(newHighlight.text, {
-                    ...newHighlight,
-                    ranges: [...newHighlight.ranges]
-                });
-            }
-        });
-
-        return Array.from(highlightMap.values());
+    private getCaseSensitiveConfig(): boolean {
+        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
     }
 
     /**
-     * 简单的sleep函数
+     * 验证活动编辑器
      */
-    private sleep(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    private validateActiveEditor(): vscode.TextEditor | null {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage("No active editor found.");
+            return null;
+        }
+        return editor;
+    }
+
+    /**
+     * 获取选中的文本或光标下的单词
+     */
+    private getSelectedText(editor: vscode.TextEditor): string | undefined {
+        const selection = editor.selection;
+
+        if (!selection.isEmpty) {
+            return editor.document.getText(selection);
+        } else {
+            const wordRange = editor.document.getWordRangeAtPosition(selection.active);
+            if (wordRange) {
+                return editor.document.getText(wordRange);
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * 刷新侧边栏
+     */
+    private refreshSidebar(): void {
+        if (this.treeProvider) {
+            this.treeProvider.refresh();
+        }
+    }
+
+    /**
+     * 刷新所有编辑器的高亮
+     */
+    private refreshAllEditors(): void {
+        vscode.window.visibleTextEditors.forEach((editor) =>
+            this.updateDecorations(editor)
+        );
+    }
+
+    /**
+     * 更新全局状态并刷新界面
+     */
+    private async updateGlobalState(terms: HighlightedTerm[]): Promise<void> {
+        this.context.globalState.update(GLOBAL_STATE_KEY, terms);
+        this.refreshAllEditors();
+        this.refreshSidebar();
+    }
+
+    /**
+     * 根据文本查找高亮词索引
+     */
+    private findTermIndex(terms: HighlightedTerm[], text: string): number {
+        const caseSensitive = this.getCaseSensitiveConfig();
+        return terms.findIndex(
+            (t) => caseSensitive ? t.text === text : t.text.toLowerCase() === text.toLowerCase()
+        );
+    }
+
+    /**
+     * 查找编辑器中所有的高亮位置
+     */
+    private findAllHighlightsInEditor(editor: vscode.TextEditor, terms: HighlightedTerm[]): HighlightPosition[] {
+        const allHighlights: HighlightPosition[] = [];
+        const document = editor.document;
+        const textContent = document.getText();
+        const caseSensitive = this.getCaseSensitiveConfig();
+
+        for (const term of terms) {
+            const regex = createHighlightRegex(term.text, caseSensitive);
+            let match;
+
+            while ((match = regex.exec(textContent)) !== null) {
+                const startPos = document.positionAt(match.index);
+                const endPos = document.positionAt(match.index + match[0].length);
+                const range = new vscode.Range(startPos, endPos);
+
+                allHighlights.push({
+                    text: term.text,
+                    index: match.index,
+                    range: range
+                });
+
+                // 防止无限循环
+                if (match.index === regex.lastIndex) {
+                    regex.lastIndex++;
+                }
+            }
+        }
+
+        return allHighlights;
+    }
+
+    /**
+     * 创建自定义装饰器类型
+     */
+    private createCustomDecorationType(customColor: HighlightColor): vscode.TextEditorDecorationType {
+        return vscode.window.createTextEditorDecorationType({
+            light: { ...customColor.light, color: "#000000" },
+            dark: { ...customColor.dark, color: "#FFFFFF" },
+            borderRadius: "2px",
+            overviewRulerColor: customColor.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
+            overviewRulerLane: vscode.OverviewRulerLane.Full
+        });
     }
 }
 
