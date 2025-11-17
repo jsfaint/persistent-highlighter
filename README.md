@@ -133,6 +133,14 @@ The extension offers 18 carefully selected preset colors:
 
 ## Recent Updates
 
+### Version 0.0.15
+
+- **Code Refactoring and Cleanup**: Streamlined codebase architecture for better maintainability and performance
+- **Enhanced Build Scripts**: Updated build process with rimraf dependency for cleaner compilation
+- **Improved File Structure**: Optimized .vscodeignore and project file organization
+- **Development Environment**: Enhanced development workflow and build automation
+- **Performance Optimizations**: Internal code improvements for better extension performance
+
 ### Version 0.0.14
 
 - **Fixed Highlight Display After Selection**: Resolved issue where highlights would not properly display after text selection operations
@@ -217,8 +225,11 @@ npm run compile
 # Run in development mode (watch)
 npm run watch
 
-# Run tests
-npm test
+# Run linting
+npm run lint
+
+# Clean build output
+npm run clean
 
 # Package extension
 npm run package
