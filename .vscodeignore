@@ -10,6 +10,7 @@ src/
 out/*.js.map
 out/**/*.js.map
 *.map
+out/test/
 
 # 忽略文档和配置文件（除了README.md）
 
