@@ -167,7 +167,7 @@ class HighlightManager {
         const terms = this.getTerms();
         const caseSensitive = this.getCaseSensitiveConfig();
 
-        if (terms.some((t) => caseSensitive ? t.text === textToHighlight : t.text.toLowerCase() === textToHighlight.toLowerCase())) {
+        if (terms.some((t) => this.textEquals(t.text, textToHighlight, caseSensitive))) {
             vscode.window.showInformationMessage(`'${textToHighlight}' is already highlighted.`);
             return;
         }
@@ -196,6 +196,16 @@ class HighlightManager {
         if (termIndex === -1) {
             vscode.window.showInformationMessage(`'${textToRemove}' is not currently highlighted.`);
             return;
+        }
+
+        // 清理自定义装饰器
+        if (this.customDecorationTypes) {
+            for (const [key, decorationType] of this.customDecorationTypes) {
+                if (key.startsWith(textToRemove)) {
+                    decorationType.dispose();
+                    this.customDecorationTypes.delete(key);
+                }
+            }
         }
 
         terms.splice(termIndex, 1);
@@ -232,6 +242,16 @@ class HighlightManager {
             const termIndex = this.findTermIndex(terms, textToRemove);
 
             if (termIndex !== -1) {
+                // 清理自定义装饰器
+                if (this.customDecorationTypes) {
+                    for (const [key, decorationType] of this.customDecorationTypes) {
+                        if (key.startsWith(textToRemove)) {
+                            decorationType.dispose();
+                            this.customDecorationTypes.delete(key);
+                        }
+                    }
+                }
+
                 terms.splice(termIndex, 1);
                 this.updateGlobalState(terms);
             }
@@ -303,6 +323,14 @@ class HighlightManager {
         if (terms.length === 0) {
             vscode.window.showInformationMessage("There are no highlights to clear.");
             return;
+        }
+
+        // 清理所有自定义装饰器
+        if (this.customDecorationTypes) {
+            for (const decorationType of this.customDecorationTypes.values()) {
+                decorationType.dispose();
+            }
+            this.customDecorationTypes.clear();
         }
 
         this.updateGlobalState([]);
@@ -418,8 +446,9 @@ class HighlightManager {
             return;
         }
 
-        const position = editor.document.positionAt(index);
-        const range = new vscode.Range(position, position.translate(0, text.length));
+        const startPos = editor.document.positionAt(index);
+        const endPos = editor.document.positionAt(index + text.length);
+        const range = new vscode.Range(startPos, endPos);
 
         editor.selection = new vscode.Selection(range.start, range.end);
         editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
@@ -719,9 +748,18 @@ class HighlightManager {
      */
     private findTermIndex(terms: HighlightedTerm[], text: string): number {
         const caseSensitive = this.getCaseSensitiveConfig();
-        return terms.findIndex(
-            (t) => caseSensitive ? t.text === text : t.text.toLowerCase() === text.toLowerCase()
-        );
+        return terms.findIndex((t) => this.textEquals(t.text, text, caseSensitive));
+    }
+
+    /**
+     * Unicode感知的文本比较
+     */
+    private textEquals(a: string, b: string, caseSensitive: boolean): boolean {
+        if (caseSensitive) {
+            return a === b;
+        }
+        // 使用 localeCompare 进行Unicode感知的大小写不敏感比较
+        return a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
     }
 
     /**
@@ -776,6 +814,11 @@ class HighlightManager {
  * 创建支持中英文的正则表达式
  */
 function createHighlightRegex(searchText: string, caseSensitive: boolean = false): RegExp {
+    // 验证输入不为空
+    if (!searchText || searchText.length === 0) {
+        throw new Error('Search text cannot be empty');
+    }
+
     const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const flags = caseSensitive ? 'g' : 'gi';
 
@@ -785,7 +828,12 @@ function createHighlightRegex(searchText: string, caseSensitive: boolean = false
     if (hasNonEnglish) {
         // 对于非英文文本，使用更灵活的边界匹配
         // 使用 (?<!\w) 和 (?!\w) 来模拟词边界，但支持非英文字符
-        return new RegExp(`(?<!\\w)${escapedText}(?!\\w)`, flags);
+        try {
+            return new RegExp(`(?<![\\w\\p{L}])${escapedText}(?![\\w\\p{L}])`, flags);
+        } catch (e) {
+            // 如果不支持 \p{L} (某些旧环境),回退到简单版本
+            return new RegExp(`(?<!\\w)${escapedText}(?!\\w)`, flags);
+        }
     } else {
         // 对于英文文本，使用标准的 \b 边界
         return new RegExp(`\\b${escapedText}\\b`, flags);
