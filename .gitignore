@@ -1,8 +1,27 @@
+# 编译输出
 *.vsix
 out/
-.claude/
+*.js.map
+src/**/*.js
+test/**/*.js
+
+# 依赖
 node_modules/
-CLAUDE.md
-.claude/
-GEMINI.md
-.gemini/
+
+# VS Code 测试
+.vscode-test/
+
+# 日志文件
+*.log
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.bak
+
+# 编辑器配置
+.vscode/
+.idea/

@@ -133,6 +133,19 @@ The extension offers 18 carefully selected preset colors:
 
 ## Recent Updates
 
+### Version 0.0.16
+
+- **Unit Testing Infrastructure**: Added comprehensive unit testing framework with Mocha and VS Code Test Electron
+- **Enhanced Unicode Text Processing**: Implemented Unicode-aware text comparison using `localeCompare` for better international character support
+- **Memory Management**: Added decorator cleanup logic in `removeHighlight` and `clearAllHighlights` to prevent memory leaks
+- **Improved Regex Support**: Enhanced `createHighlightRegex` with Unicode property escapes (`\p{L}`) and fallback support
+- **Bug Fixes**:
+  - Fixed `jumpToHighlight` range calculation using proper start/end positions
+  - Improved case-insensitive comparison for non-English text
+  - Added input validation in `createHighlightRegex` function
+- **Build System**: Suppressed Node.js deprecation warnings during packaging with `cross-env`
+- **Code Quality**: Exported core classes and functions for better testability and modular design
+
 ### Version 0.0.15
 
 - **Code Refactoring and Cleanup**: Streamlined codebase architecture for better maintainability and performance
@@ -228,6 +241,15 @@ npm run watch
 # Run linting
 npm run lint
 
+# Run unit tests
+npm run test
+
+# Compile test code
+npm run compile:test
+
+# Watch mode for test code
+npm run watch:test
+
 # Clean build output
 npm run clean
 
@@ -241,11 +263,14 @@ The extension uses a comprehensive architecture with:
 
 - `HighlightManager` class: Central manager for all highlighting operations with caching support
 - `HighlightsTreeProvider` class: Manages the sidebar tree view for highlight management
+- Unit Testing: Comprehensive test suite using Mocha framework with VS Code Test Electron
 - VS Code API integration: Uses `TextEditorDecorationType` for rendering highlights
 - State persistence: Uses `globalState` to store highlights across sessions
 - Event-driven updates: Listens to document changes, active editor changes, and configuration changes
 - Performance optimization: Intelligent caching and large file handling
-- Custom color management: Dynamic decoration type creation for custom colors
+- Custom color management: Dynamic decoration type creation for custom colors with proper disposal
+- Memory management: Automatic decorator cleanup to prevent memory leaks
+- Unicode support: Advanced text comparison using `localeCompare` for international characters
 - Incremental updates: Efficient processing of document changes without full re-rendering
 
 ## License
