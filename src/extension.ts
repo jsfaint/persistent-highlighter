@@ -44,19 +44,19 @@ const decorationTypes = colorPool.map((color) =>
 );
 
 // 定义存储在 globalState 中的对象结构
-interface HighlightColor {
+export interface HighlightColor {
     light: { backgroundColor: string };
     dark: { backgroundColor: string };
 }
 
-interface HighlightedTerm {
+export interface HighlightedTerm {
     text: string;
     colorId: number;
     isCustomColor?: boolean;
     customColor?: HighlightColor;
 }
 
-interface HighlightPosition {
+export interface HighlightPosition {
     text: string;
     index: number;
     range: vscode.Range;
@@ -99,7 +99,7 @@ interface CachedHighlight {
     customColor?: HighlightColor;
 }
 
-class HighlightManager {
+export class HighlightManager {
     private context: vscode.ExtensionContext;
     private treeProvider: HighlightsTreeProvider | undefined;
     private customDecorationTypes: Map<string, vscode.TextEditorDecorationType> | undefined;
@@ -813,7 +813,7 @@ class HighlightManager {
 /**
  * 创建支持中英文的正则表达式
  */
-function createHighlightRegex(searchText: string, caseSensitive: boolean = false): RegExp {
+export function createHighlightRegex(searchText: string, caseSensitive: boolean = false): RegExp {
     // 验证输入不为空
     if (!searchText || searchText.length === 0) {
         throw new Error('Search text cannot be empty');
@@ -822,28 +822,23 @@ function createHighlightRegex(searchText: string, caseSensitive: boolean = false
     const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const flags = caseSensitive ? 'g' : 'gi';
 
-    // 检查是否包含非英文字符
-    const hasNonEnglish = /[^a-zA-Z0-9_]/.test(searchText);
+    // 检查是否只包含英文单词字符（字母、数字、下划线）
+    const isPureWord = /^[a-zA-Z0-9_]+$/.test(searchText);
 
-    if (hasNonEnglish) {
-        // 对于非英文文本，使用更灵活的边界匹配
-        // 使用 (?<!\w) 和 (?!\w) 来模拟词边界，但支持非英文字符
-        try {
-            return new RegExp(`(?<![\\w\\p{L}])${escapedText}(?![\\w\\p{L}])`, flags);
-        } catch (e) {
-            // 如果不支持 \p{L} (某些旧环境),回退到简单版本
-            return new RegExp(`(?<!\\w)${escapedText}(?!\\w)`, flags);
-        }
+    if (isPureWord) {
+        // 对于纯英文单词，使用标准的 \b 边界（严格全字匹配）
+        return new RegExp(String.raw`\b${escapedText}\b`, flags);
     } else {
-        // 对于英文文本，使用标准的 \b 边界
-        return new RegExp(`\\b${escapedText}\\b`, flags);
+        // 对于包含特殊字符或非英文字符的文本，直接匹配不使用边界
+        // 因为中文等语言没有空格分隔单词的概念
+        return new RegExp(escapedText, flags);
     }
 }
 
 /**
  * 全字匹配搜索函数 - 支持英文和非英文文本
  */
-function findWholeWord(text: string, searchText: string, caseSensitive: boolean = false): number {
+export function findWholeWord(text: string, searchText: string, caseSensitive: boolean = false): number {
     const regex = createHighlightRegex(searchText, caseSensitive);
     const match = regex.exec(text);
     return match ? match.index : -1;

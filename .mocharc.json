@@ -1,0 +1,7 @@
+{
+	"timeout": 5000,
+	"ui": "tdd",
+	"require": "source-map-support/register",
+	"spec": "out/test/suite/**/*.test.js",
+	"recursive": true
+}
