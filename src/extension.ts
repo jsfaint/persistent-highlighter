@@ -280,6 +280,7 @@ export class HighlightManager {
         }
 
         const document = editor.document;
+        const text = document.getText();
         const offset = document.offsetAt(position);
         const caseSensitive = this.getCaseSensitiveConfig();
         const highlightedTexts: string[] = [];
@@ -287,8 +288,18 @@ export class HighlightManager {
         for (const term of terms) {
             const regex = createHighlightRegex(term.text, caseSensitive);
             let match;
+            let matchCount = 0;
+            const maxMatches = text.length; // 安全上限：匹配次数不应超过文本长度
 
-            while ((match = regex.exec(document.getText())) !== null) {
+            while ((match = regex.exec(text)) !== null) {
+                matchCount++;
+
+                // 安全检查：防止无限循环
+                if (matchCount > maxMatches) {
+                    console.warn(`Potential infinite loop detected for term: ${term.text}`);
+                    break;
+                }
+
                 const matchStart = match.index;
                 const matchEnd = matchStart + match[0].length;
 
@@ -298,9 +309,13 @@ export class HighlightManager {
                     break; // 找到一个匹配就够了
                 }
 
-                // 防止无限循环
+                // 防止无限循环：处理 zero-length match
                 if (match.index === regex.lastIndex) {
                     regex.lastIndex++;
+                    // 再次检查防止 lastIndex 超出文本长度
+                    if (regex.lastIndex > text.length) {
+                        break;
+                    }
                 }
             }
         }
@@ -553,12 +568,15 @@ export class HighlightManager {
         const customHighlights = new Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>();
 
         for (const highlight of highlights) {
+            // 检查是否有有效的自定义颜色
             if (highlight.isCustomColor && highlight.customColor) {
                 const colorKey = this.getCustomColorKey(highlight);
-                if (!customHighlights.has(colorKey)) {
-                    customHighlights.set(colorKey, { ranges: [], highlight });
+                if (colorKey) {
+                    if (!customHighlights.has(colorKey)) {
+                        customHighlights.set(colorKey, { ranges: [], highlight });
+                    }
+                    customHighlights.get(colorKey)!.ranges.push(...highlight.ranges);
                 }
-                customHighlights.get(colorKey)!.ranges.push(...highlight.ranges);
             } else {
                 const colorDecorations = colorHighlights.get(highlight.colorId);
                 if (colorDecorations) {
@@ -573,8 +591,11 @@ export class HighlightManager {
     /**
      * 获取自定义颜色的唯一键
      */
-    private getCustomColorKey(highlight: CachedHighlight): string {
-        return `${highlight.text}_${highlight.customColor!.light.backgroundColor}`;
+    private getCustomColorKey(highlight: CachedHighlight): string | null {
+        if (!highlight.customColor || !highlight.customColor.light) {
+            return null;
+        }
+        return `${highlight.text}_${highlight.customColor.light.backgroundColor}`;
     }
 
     /**
@@ -603,8 +624,14 @@ export class HighlightManager {
 
         customHighlights.forEach(({ ranges, highlight }) => {
             const colorKey = this.getCustomColorKey(highlight);
+
+            // 如果 colorKey 为空或 highlight.customColor 不存在，跳过
+            if (!colorKey || !highlight.customColor) {
+                return;
+            }
+
             if (!decorationTypes.has(colorKey)) {
-                const customDecorationType = this.createCustomDecorationType(highlight.customColor!);
+                const customDecorationType = this.createCustomDecorationType(highlight.customColor);
                 decorationTypes.set(colorKey, customDecorationType);
             }
             const decorationType = decorationTypes.get(colorKey);
@@ -686,13 +713,32 @@ export class HighlightManager {
             const regex = createHighlightRegex(term.text, caseSensitive);
             const ranges: vscode.Range[] = [];
             let match;
+            let matchCount = 0;
+            const maxMatches = text.length; // 安全上限
 
             while ((match = regex.exec(text)) !== null) {
+                matchCount++;
+
+                // 安全检查：防止无限循环
+                if (matchCount > maxMatches) {
+                    console.warn(`Potential infinite loop detected for term: ${term.text}`);
+                    break;
+                }
+
                 const startPos = editor.document.positionAt(match.index);
                 const endPos = editor.document.positionAt(
                     match.index + match[0].length
                 );
                 ranges.push(new vscode.Range(startPos, endPos));
+
+                // 防止无限循环：处理 zero-length match
+                if (match.index === regex.lastIndex) {
+                    regex.lastIndex++;
+                    // 再次检查防止 lastIndex 超出文本长度
+                    if (regex.lastIndex > text.length) {
+                        break;
+                    }
+                }
             }
 
             if (ranges.length > 0) {
@@ -808,8 +854,18 @@ export class HighlightManager {
         for (const term of terms) {
             const regex = createHighlightRegex(term.text, caseSensitive);
             let match;
+            let matchCount = 0;
+            const maxMatches = textContent.length; // 安全上限
 
             while ((match = regex.exec(textContent)) !== null) {
+                matchCount++;
+
+                // 安全检查：防止无限循环
+                if (matchCount > maxMatches) {
+                    console.warn(`Potential infinite loop detected for term: ${term.text}`);
+                    break;
+                }
+
                 const startPos = document.positionAt(match.index);
                 const endPos = document.positionAt(match.index + match[0].length);
                 const range = new vscode.Range(startPos, endPos);
@@ -820,9 +876,13 @@ export class HighlightManager {
                     range: range
                 });
 
-                // 防止无限循环
+                // 防止无限循环：处理 zero-length match
                 if (match.index === regex.lastIndex) {
                     regex.lastIndex++;
+                    // 再次检查防止 lastIndex 超出文本长度
+                    if (regex.lastIndex > textContent.length) {
+                        break;
+                    }
                 }
             }
         }
@@ -867,6 +927,22 @@ export class HighlightManager {
             this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
         }
     }
+
+    /**
+     * 释放所有资源，防止内存泄漏
+     */
+    public dispose(): void {
+        // 释放所有自定义装饰器
+        if (this.customDecorationTypes) {
+            for (const decorationType of this.customDecorationTypes.values()) {
+                decorationType.dispose();
+            }
+            this.customDecorationTypes.clear();
+        }
+
+        // 清理缓存
+        this.highlightCache.clear();
+    }
 }
 
 /**
@@ -903,11 +979,19 @@ export function findWholeWord(text: string, searchText: string, caseSensitive: b
     return match ? match.index : -1;
 }
 
+// 保存全局实例用于资源清理
+let highlightManagerInstance: HighlightManager | undefined;
+let treeProviderInstance: HighlightsTreeProvider | undefined;
+
 // 激活扩展
 export function activate(context: vscode.ExtensionContext) {
 
     const treeProvider = new HighlightsTreeProvider(context);
     const highlightManager = new HighlightManager(context, treeProvider);
+
+    // 保存实例引用用于清理
+    highlightManagerInstance = highlightManager;
+    treeProviderInstance = treeProvider;
 
     // 注册侧边栏视图
     vscode.window.registerTreeDataProvider('highlightsView', treeProvider);
@@ -1064,4 +1148,21 @@ export function activate(context: vscode.ExtensionContext) {
     );
 }
 
-export function deactivate() { }
+export function deactivate() {
+    // 释放 HighlightManager 的资源
+    if (highlightManagerInstance) {
+        highlightManagerInstance.dispose();
+        highlightManagerInstance = undefined;
+    }
+
+    // 释放 HighlightsTreeProvider 的资源
+    if (treeProviderInstance) {
+        treeProviderInstance.dispose();
+        treeProviderInstance = undefined;
+    }
+
+    // 释放全局装饰器类型
+    for (const decorationType of decorationTypes) {
+        decorationType.dispose();
+    }
+}

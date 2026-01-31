@@ -163,6 +163,13 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     getTotalHighlights(): number {
         return this.getTerms().length;
     }
+
+    /**
+     * 释放事件监听器，防止内存泄漏
+     */
+    dispose(): void {
+        this._onDidChangeTreeData.dispose();
+    }
 }
 
 interface HighlightTerm {
