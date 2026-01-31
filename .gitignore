@@ -25,3 +25,5 @@ Thumbs.db
 # 编辑器配置
 .vscode/
 .idea/
+
+.tickets/
