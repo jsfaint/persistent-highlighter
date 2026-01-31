@@ -133,6 +133,30 @@ The extension offers 18 carefully selected preset colors:
 
 ## Recent Updates
 
+### Version 0.0.17
+
+- **Bug Fixes - Memory Management**:
+  - Fixed memory leak in `HighlightManager` by adding proper `dispose()` method
+  - Fixed event listener memory leak in `HighlightsTreeProvider`
+  - Ensured all decoration types are properly released on extension deactivation
+- **Bug Fixes - Race Conditions**:
+  - Added document version checking in `updateDecorations()` to prevent race conditions
+  - Improved handling of concurrent document modifications
+- **Bug Fixes - Type Safety**:
+  - Added null checks for `customColor` properties to prevent runtime crashes
+  - Improved `getCustomColorKey()` to return `string | null` with proper validation
+  - Enhanced input validation in `validateActiveEditor()` with document existence check
+- **Bug Fixes - Infinite Loop Prevention**:
+  - Added match count limits for regex operations to prevent infinite loops
+  - Improved `lastIndex` handling for zero-width matches
+  - Added safety checks for regex operations in all matching loops
+- **Unit Testing Enhancements**:
+  - Added comprehensive tests for `dispose()` methods
+  - Added tests for type safety and null handling
+  - Added tests for infinite loop prevention
+  - Added tests for edge cases in input validation
+  - Added tests for event listener cleanup
+
 ### Version 0.0.16
 
 - **Unit Testing Infrastructure**: Added comprehensive unit testing framework with Mocha and VS Code Test Electron

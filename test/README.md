@@ -54,6 +54,19 @@ test/
 - ✅ `HighlightManager`: 核心管理类
   - 实例化
   - 配置获取
+  - dispose 方法资源释放
+  - 多次 dispose 不应该报错
+  - dispose 后清理缓存
+  - 竞态条件保护 - 文档版本检查
+  - 类型安全 - 处理缺失 customColor 的情况
+  - 类型安全 - 处理 null customColor
+  - 防止零宽匹配的无限循环
+  - 处理特殊正则字符
+  - 处理空文本错误
+  - 处理重复字符模式
+  - validateActiveEditor 缺少文档时返回 null
+  - validateActiveEditor 正常情况返回编辑器
+  - validateActiveEditor 没有编辑器时返回 null
 
 ### highlightsTreeProvider.test.ts
 
@@ -71,6 +84,47 @@ test/
   - 空列表处理
   - 无编辑器处理
   - 事件触发
+  - dispose 方法释放事件监听器
+  - 多次 dispose 不应该报错
+
+## 测试统计
+
+- **extension.test.ts**: 24 个测试用例
+- **highlightsTreeProvider.test.ts**: 15 个测试用例
+- **总计**: 39 个测试用例
+
+## 测试覆盖领域
+
+### 核心功能测试
+- ✅ 正则表达式创建和匹配
+- ✅ 全字匹配查找
+- ✅ 多语言文本支持（中、英、日、韩等）
+- ✅ 大小写敏感/不敏感匹配
+- ✅ 特殊字符处理
+
+### 内存管理测试
+- ✅ dispose 方法正确释放资源
+- ✅ 事件监听器正确清理
+- ✅ 装饰器类型正确释放
+- ✅ 缓存正确清理
+
+### 类型安全测试
+- ✅ null/undefined 处理
+- ✅ customColor 缺失时的处理
+- ✅ 边界条件验证
+
+### 防御性编程测试
+- ✅ 无限循环防护
+- ✅ 竞态条件防护
+- ✅ 输入验证
+- ✅ 文档版本检查
+
+### 边缘情况测试
+- ✅ 空输入处理
+- ✅ 零宽匹配处理
+- ✅ 重复字符模式
+- ✅ 特殊正则字符
+- ✅ 缺少文档的情况
 
 ## 添加新测试
 
