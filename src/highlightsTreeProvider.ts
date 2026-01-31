@@ -38,10 +38,8 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     private currentEditor: vscode.TextEditor | undefined;
 
     constructor(private context: vscode.ExtensionContext) {
-        // 初始化当前编辑器
         this.currentEditor = vscode.window.activeTextEditor;
 
-        // 监听活动编辑器变化
         vscode.window.onDidChangeActiveTextEditor((editor) => {
             this.currentEditor = editor;
             this.refresh();
@@ -59,65 +57,81 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     getChildren(element?: HighlightItem): Thenable<HighlightItem[]> {
         if (element) {
             return Promise.resolve([]);
-        } else {
-            const terms = this.getTerms();
+        }
 
-            // 如果没有当前编辑器，显示提示信息
-            if (!this.currentEditor) {
-                const noEditorItem = new vscode.TreeItem('No active editor', vscode.TreeItemCollapsibleState.None);
-                noEditorItem.description = 'Open a file to see highlights';
-                noEditorItem.iconPath = new vscode.ThemeIcon('info');
-                noEditorItem.contextValue = 'noEditor';
-                return Promise.resolve([noEditorItem as HighlightItem]);
+        if (!this.currentEditor) {
+            return Promise.resolve([this.createNoEditorItem()]);
+        }
+
+        const activeTerms = this.getActiveTermsForCurrentFile();
+        if (activeTerms.length === 0) {
+            return Promise.resolve([this.createNoHighlightsItem()]);
+        }
+
+        return Promise.resolve(
+            activeTerms.map(term => this.createHighlightItem(term))
+        );
+    }
+
+    private createNoEditorItem(): HighlightItem {
+        const item = new vscode.TreeItem('No active editor', vscode.TreeItemCollapsibleState.None);
+        item.description = 'Open a file to see highlights';
+        item.iconPath = new vscode.ThemeIcon('info');
+        item.contextValue = 'noEditor';
+        return item as HighlightItem;
+    }
+
+    private createNoHighlightsItem(): HighlightItem {
+        const item = new vscode.TreeItem('No highlights in current file');
+        item.description = 'Add highlights to see them here';
+        item.iconPath = new vscode.ThemeIcon('symbol-color');
+        item.contextValue = 'noHighlights';
+        return item as HighlightItem;
+    }
+
+    private createHighlightItem(term: HighlightTerm): HighlightItem {
+        return new HighlightItem(
+            term.text,
+            term.colorId,
+            vscode.TreeItemCollapsibleState.None,
+            term.isCustomColor,
+            term.customColor,
+            true
+        );
+    }
+
+    private getActiveTermsForCurrentFile(): HighlightTerm[] {
+        const terms = this.getTerms();
+        if (!this.currentEditor) {
+            return [];
+        }
+
+        const fileContent = this.currentEditor.document.getText();
+        const caseSensitive = this.getCaseSensitiveConfig();
+
+        return terms.filter(term => this.isTermInFile(term, fileContent, caseSensitive));
+    }
+
+    private isTermInFile(term: HighlightTerm, fileContent: string, caseSensitive: boolean): boolean {
+        if (!term.text || typeof term.text !== 'string') {
+            return false;
+        }
+
+        try {
+            if (caseSensitive) {
+                return fileContent.includes(term.text);
             }
-
-            // 获取当前文件内容
-            const currentDocument = this.currentEditor.document;
-            const fileContent = currentDocument.getText();
-            const caseSensitive = vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-
-            // 只显示在当前文件中存在的高亮项
-            const activeTerms = terms.filter(term => {
-                if (!term.text || typeof term.text !== 'string') {
-                    return false;
-                }
-
-                try {
-                    if (caseSensitive) {
-                        return fileContent.includes(term.text);
-                    } else {
-                        return fileContent.toLowerCase().includes(term.text.toLowerCase());
-                    }
-                } catch {
-                    return false;
-                }
-            });
-
-            // 如果当前文件没有高亮项，显示提示
-            if (activeTerms.length === 0) {
-                const noHighlightsItem = new vscode.TreeItem('No highlights in current file');
-                noHighlightsItem.description = 'Add highlights to see them here';
-                noHighlightsItem.iconPath = new vscode.ThemeIcon('symbol-color');
-                noHighlightsItem.contextValue = 'noHighlights';
-                return Promise.resolve([noHighlightsItem as HighlightItem]);
-            }
-
-            return Promise.resolve(
-                activeTerms.map(term =>
-                    new HighlightItem(
-                        term.text,
-                        term.colorId,
-                        vscode.TreeItemCollapsibleState.None,
-                        term.isCustomColor,
-                        term.customColor,
-                        true // 有活跃编辑器，启用跳转
-                    )
-                )
-            );
+            return fileContent.toLowerCase().includes(term.text.toLowerCase());
+        } catch {
+            return false;
         }
     }
 
-    private getTerms(): Array<{ text: string, colorId: number, isCustomColor?: boolean, customColor?: { light: { backgroundColor: string }, dark: { backgroundColor: string } } }> {
+    private getCaseSensitiveConfig(): boolean {
+        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+    }
+
+    private getTerms(): HighlightTerm[] {
         return this.context.globalState.get('persistentHighlighterTerms', []);
     }
 
@@ -149,4 +163,11 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     getTotalHighlights(): number {
         return this.getTerms().length;
     }
+}
+
+interface HighlightTerm {
+    text: string;
+    colorId: number;
+    isCustomColor?: boolean;
+    customColor?: { light: { backgroundColor: string }; dark: { backgroundColor: string } };
 }

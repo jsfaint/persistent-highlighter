@@ -198,16 +198,7 @@ export class HighlightManager {
             return;
         }
 
-        // 清理自定义装饰器
-        if (this.customDecorationTypes) {
-            for (const [key, decorationType] of this.customDecorationTypes) {
-                if (key.startsWith(textToRemove)) {
-                    decorationType.dispose();
-                    this.customDecorationTypes.delete(key);
-                }
-            }
-        }
-
+        this.disposeDecorationsForText(textToRemove);
         terms.splice(termIndex, 1);
         this.updateGlobalState(terms);
     }
@@ -229,36 +220,36 @@ export class HighlightManager {
         this.toggleHighlightForEditor(editor);
     }
 
-    private toggleHighlightForEditor(editor: vscode.TextEditor) {
+    private toggleHighlightForEditor(editor: vscode.TextEditor): void {
         const currentPosition = editor.selection.active;
-
-        // 优先检查当前位置是否在高亮范围内
         const highlightsAtPosition = this.findHighlightsAtPosition(editor, currentPosition);
 
         if (highlightsAtPosition.length > 0) {
-            // 如果当前位置有高亮，移除第一个高亮（通常不会有重叠的高亮）
-            const textToRemove = highlightsAtPosition[0];
-            const terms = this.getTerms();
-            const termIndex = this.findTermIndex(terms, textToRemove);
-
-            if (termIndex !== -1) {
-                // 清理自定义装饰器
-                if (this.customDecorationTypes) {
-                    for (const [key, decorationType] of this.customDecorationTypes) {
-                        if (key.startsWith(textToRemove)) {
-                            decorationType.dispose();
-                            this.customDecorationTypes.delete(key);
-                        }
-                    }
-                }
-
-                terms.splice(termIndex, 1);
-                this.updateGlobalState(terms);
-            }
+            this.removeHighlightAtPosition(highlightsAtPosition[0]);
             return;
         }
 
-        // 如果当前位置没有高亮，则按照原有逻辑添加高亮
+        this.addHighlightAtPosition(editor);
+    }
+
+    /**
+     * 移除指定位置的高亮
+     */
+    private removeHighlightAtPosition(text: string): void {
+        const terms = this.getTerms();
+        const termIndex = this.findTermIndex(terms, text);
+
+        if (termIndex !== -1) {
+            this.disposeDecorationsForText(text);
+            terms.splice(termIndex, 1);
+            this.updateGlobalState(terms);
+        }
+    }
+
+    /**
+     * 在当前位置添加高亮
+     */
+    private addHighlightAtPosition(editor: vscode.TextEditor): void {
         const textToToggle = this.getSelectedText(editor);
         if (!textToToggle || textToToggle.trim() === "") {
             vscode.window.showWarningMessage("No text selected or word under cursor.");
@@ -266,15 +257,14 @@ export class HighlightManager {
         }
 
         const terms = this.getTerms();
-        const termIndex = this.findTermIndex(terms, textToToggle.trim());
+        const trimmedText = textToToggle.trim();
+        const termIndex = this.findTermIndex(terms, trimmedText);
 
         if (termIndex !== -1) {
-            // 如果该文本已经被高亮，但当前位置没有被高亮，则移除该高亮
             terms.splice(termIndex, 1);
         } else {
-            // 添加新的高亮
             const colorId = terms.length % colorPool.length;
-            terms.push({ text: textToToggle.trim(), colorId });
+            terms.push({ text: trimmedText, colorId });
         }
 
         this.updateGlobalState(terms);
@@ -341,7 +331,7 @@ export class HighlightManager {
         this.refreshAllEditors();
     }
 
-    public async addHighlightWithCustomColor() {
+    public async addHighlightWithCustomColor(): Promise<void> {
         const editor = this.validateActiveEditor();
         if (!editor) {
             return;
@@ -353,69 +343,79 @@ export class HighlightManager {
             return;
         }
 
-        // 使用VS Code内置的颜色选择器
         const customColorHex = await this.showColorPicker();
-
         if (!customColorHex) {
-            return; // 用户取消了选择
+            return;
         }
 
-        // 验证并解析自定义颜色
-        if (!customColorHex || !customColorHex.match(/^#[0-9A-Fa-f]{6}$/)) {
+        const customColor = this.parseHexToColor(customColorHex);
+        if (!customColor) {
             vscode.window.showErrorMessage('Invalid color format. Please use hex format #RRGGBB.');
             return;
         }
 
-        // 安全地将hex颜色转换为rgba，设置透明度
-        const r = parseInt(customColorHex.slice(1, 3), 16);
-        const g = parseInt(customColorHex.slice(3, 5), 16);
-        const b = parseInt(customColorHex.slice(5, 7), 16);
-
-        // 验证解析结果
-        if (isNaN(r) || isNaN(g) || isNaN(b)) {
-            vscode.window.showErrorMessage('Invalid color values. Please try again.');
-            return;
-        }
-
-        const customColor = {
-            light: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.4)` },
-            dark: { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.3)` }
-        };
-        const colorId = CUSTOM_COLOR_ID_OFFSET; // 使用自定义颜色ID偏移
-
-        const terms = this.getTerms();
-        const termIndex = this.findTermIndex(terms, textToHighlight);
-
-        if (termIndex !== -1) {
-            // 更新现有高亮的颜色
-            terms[termIndex].colorId = colorId;
-            terms[termIndex].isCustomColor = true;
-            terms[termIndex].customColor = customColor;
-        } else {
-            // 添加新高亮
-            terms.push({
-                text: textToHighlight,
-                colorId,
-                isCustomColor: true,
-                customColor
-            });
-        }
-
-        this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-
-        // 创建新的decoration type
-        const customDecorationType = this.createCustomDecorationType(customColor);
-
-        // 存储自定义颜色decoration type
-        if (!this.customDecorationTypes) {
-            this.customDecorationTypes = new Map();
-        }
-        this.customDecorationTypes.set(textToHighlight, customDecorationType);
-
+        this.addOrUpdateHighlightWithColor(textToHighlight, customColor);
+        this.registerCustomDecorationType(textToHighlight, customColor);
         this.refreshAllEditors();
         this.refreshSidebar();
 
         vscode.window.showInformationMessage(`Highlight added with custom color: ${customColorHex}`);
+    }
+
+    /**
+     * 解析十六进制颜色为 HighlightColor
+     */
+    private parseHexToColor(hex: string): HighlightColor | null {
+        if (!hex.match(/^#[0-9A-Fa-f]{6}$/)) {
+            return null;
+        }
+
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+
+        if (isNaN(r) || isNaN(g) || isNaN(b)) {
+            return null;
+        }
+
+        return {
+            light: { backgroundColor: `rgba(${r}, ${g}, ${b}, ${DEFAULT_LIGHT_OPACITY})` },
+            dark: { backgroundColor: `rgba(${r}, ${g}, ${b}, ${DEFAULT_DARK_OPACITY})` }
+        };
+    }
+
+    /**
+     * 添加或更新带自定义颜色的高亮
+     */
+    private addOrUpdateHighlightWithColor(text: string, color: HighlightColor): void {
+        const terms = this.getTerms();
+        const termIndex = this.findTermIndex(terms, text);
+
+        const highlightData: HighlightedTerm = {
+            text,
+            colorId: CUSTOM_COLOR_ID_OFFSET,
+            isCustomColor: true,
+            customColor: color
+        };
+
+        if (termIndex !== -1) {
+            terms[termIndex] = highlightData;
+        } else {
+            terms.push(highlightData);
+        }
+
+        this.context.globalState.update(GLOBAL_STATE_KEY, terms);
+    }
+
+    /**
+     * 注册自定义装饰器类型
+     */
+    private registerCustomDecorationType(text: string, color: HighlightColor): void {
+        if (!this.customDecorationTypes) {
+            this.customDecorationTypes = new Map();
+        }
+        const customDecorationType = this.createCustomDecorationType(color);
+        this.customDecorationTypes.set(text, customDecorationType);
     }
 
     public jumpToHighlight(text: string): void {
@@ -455,104 +455,106 @@ export class HighlightManager {
     }
 
     public jumpToNextHighlight(): void {
-        const editor = this.validateActiveEditor();
-        if (!editor) {
-            return;
-        }
-
-        const terms = this.getTerms();
-        if (terms.length === 0) {
-            vscode.window.showInformationMessage("No highlights found.");
-            return;
-        }
-
-        const allHighlights = this.findAllHighlightsInEditor(editor, terms);
-        if (allHighlights.length === 0) {
-            vscode.window.showInformationMessage("No highlights found in current file.");
-            return;
-        }
-
-        // 按位置排序
-        allHighlights.sort((a: HighlightPosition, b: HighlightPosition) => a.index - b.index);
-
-        // 找到当前位置之后的高亮（循环查找）
-        const currentOffset = editor.document.offsetAt(editor.selection.active);
-        let nextHighlight = allHighlights.find((h: HighlightPosition) => h.index > currentOffset);
-
-        // 如果当前位置后面没有高亮，则跳转到第一个高亮（循环）
-        if (!nextHighlight) {
-            nextHighlight = allHighlights[0];
-        }
-
-        if (nextHighlight) {
-            editor.selection = new vscode.Selection(nextHighlight.range.start, nextHighlight.range.end);
-            editor.revealRange(nextHighlight.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-        }
+        this.jumpToHighlightByDirection(1);
     }
 
     public jumpToPrevHighlight(): void {
+        this.jumpToHighlightByDirection(-1);
+    }
+
+    /**
+     * 按方向跳转到高亮（1=下一个，-1=上一个）
+     */
+    private jumpToHighlightByDirection(direction: 1 | -1): void {
         const editor = this.validateActiveEditor();
         if (!editor) {
             return;
         }
 
-        const terms = this.getTerms();
-        if (terms.length === 0) {
+        const allHighlights = this.getAllHighlightsInEditor(editor);
+        if (allHighlights.length === 0) {
             vscode.window.showInformationMessage("No highlights found.");
             return;
         }
 
-        const allHighlights = this.findAllHighlightsInEditor(editor, terms);
-        if (allHighlights.length === 0) {
-            vscode.window.showInformationMessage("No highlights found in current file.");
-            return;
-        }
-
-        // 按位置排序
-        allHighlights.sort((a: HighlightPosition, b: HighlightPosition) => a.index - b.index);
-
-        // 找到当前位置之前的高亮（循环查找）
         const currentOffset = editor.document.offsetAt(editor.selection.active);
-        let prevHighlight: HighlightPosition | null = null;
+        const targetHighlight = this.findHighlightByDirection(allHighlights, currentOffset, direction);
 
-        // 从后往前找，找到第一个小于当前位置的高亮
-        for (let i = allHighlights.length - 1; i >= 0; i--) {
-            if (allHighlights[i].index < currentOffset) {
-                prevHighlight = allHighlights[i];
-                break;
-            }
-        }
-
-        // 如果当前位置前面没有高亮，则跳转到最后一个高亮（循环）
-        if (!prevHighlight) {
-            prevHighlight = allHighlights[allHighlights.length - 1];
-        }
-
-        if (prevHighlight) {
-            editor.selection = new vscode.Selection(prevHighlight.range.start, prevHighlight.range.end);
-            editor.revealRange(prevHighlight.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        if (targetHighlight) {
+            this.selectAndRevealRange(editor, targetHighlight.range);
         }
     }
 
+    /**
+     * 获取编辑器中的所有高亮并排序
+     */
+    private getAllHighlightsInEditor(editor: vscode.TextEditor): HighlightPosition[] {
+        const terms = this.getTerms();
+        if (terms.length === 0) {
+            return [];
+        }
+
+        const allHighlights = this.findAllHighlightsInEditor(editor, terms);
+        allHighlights.sort((a: HighlightPosition, b: HighlightPosition) => a.index - b.index);
+        return allHighlights;
+    }
+
+    /**
+     * 根据方向查找目标高亮
+     */
+    private findHighlightByDirection(
+        highlights: HighlightPosition[],
+        currentOffset: number,
+        direction: 1 | -1
+    ): HighlightPosition | null {
+        if (direction === 1) {
+            // 找下一个
+            const nextHighlight = highlights.find((h) => h.index > currentOffset);
+            return nextHighlight || highlights[0]; // 循环到第一个
+        } else {
+            // 找上一个
+            for (let i = highlights.length - 1; i >= 0; i--) {
+                if (highlights[i].index < currentOffset) {
+                    return highlights[i];
+                }
+            }
+            return highlights[highlights.length - 1]; // 循环到最后一个
+        }
+    }
+
+    /**
+     * 选中并滚动到指定范围
+     */
+    private selectAndRevealRange(editor: vscode.TextEditor, range: vscode.Range): void {
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }
+
     
-    private applyHighlightsToEditor(editor: vscode.TextEditor, highlights: CachedHighlight[]) {
-        // 清空现有装饰
-        decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
-        if (this.customDecorationTypes) {
-            this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
-        }
-
-        // 分类整理高亮
-        const colorHighlights = new Map<number, vscode.Range[]>();
-        const customHighlights = new Map<string, { ranges: vscode.Range[], highlight: CachedHighlight }>();
-
+    /**
+     * 初始化颜色高亮映射表
+     */
+    private initializeColorHighlightsMap(): Map<number, vscode.Range[]> {
+        const map = new Map<number, vscode.Range[]>();
         for (let i = 0; i < colorPool.length; i++) {
-            colorHighlights.set(i, []);
+            map.set(i, []);
         }
+        return map;
+    }
+
+    /**
+     * 将高亮按颜色分类
+     */
+    private categorizeHighlights(highlights: CachedHighlight[]): {
+        colorHighlights: Map<number, vscode.Range[]>;
+        customHighlights: Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>;
+    } {
+        const colorHighlights = this.initializeColorHighlightsMap();
+        const customHighlights = new Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>();
 
         for (const highlight of highlights) {
             if (highlight.isCustomColor && highlight.customColor) {
-                const colorKey = `${highlight.text}_${highlight.customColor.light.backgroundColor}`;
+                const colorKey = this.getCustomColorKey(highlight);
                 if (!customHighlights.has(colorKey)) {
                     customHighlights.set(colorKey, { ranges: [], highlight });
                 }
@@ -565,23 +567,60 @@ export class HighlightManager {
             }
         }
 
-        // 应用内置颜色
+        return { colorHighlights, customHighlights };
+    }
+
+    /**
+     * 获取自定义颜色的唯一键
+     */
+    private getCustomColorKey(highlight: CachedHighlight): string {
+        return `${highlight.text}_${highlight.customColor!.light.backgroundColor}`;
+    }
+
+    /**
+     * 应用内置颜色装饰器
+     */
+    private applyBuiltInDecorations(editor: vscode.TextEditor, colorHighlights: Map<number, vscode.Range[]>): void {
         colorHighlights.forEach((ranges, colorId) => {
             if (colorId < decorationTypes.length) {
                 editor.setDecorations(decorationTypes[colorId], ranges);
             }
         });
+    }
 
-        // 应用自定义颜色
+    /**
+     * 应用自定义颜色装饰器
+     */
+    private applyCustomDecorations(
+        editor: vscode.TextEditor,
+        customHighlights: Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>
+    ): void {
+        if (!this.customDecorationTypes) {
+            this.customDecorationTypes = new Map();
+        }
+
+        const decorationTypes = this.customDecorationTypes;
+
         customHighlights.forEach(({ ranges, highlight }) => {
-            const colorKey = `${highlight.text}_${highlight.customColor!.light.backgroundColor}`;
-            if (!this.customDecorationTypes!.has(colorKey)) {
+            const colorKey = this.getCustomColorKey(highlight);
+            if (!decorationTypes.has(colorKey)) {
                 const customDecorationType = this.createCustomDecorationType(highlight.customColor!);
-                this.customDecorationTypes!.set(colorKey, customDecorationType);
+                decorationTypes.set(colorKey, customDecorationType);
             }
-            const decorationType = this.customDecorationTypes!.get(colorKey)!;
-            editor.setDecorations(decorationType, ranges);
+            const decorationType = decorationTypes.get(colorKey);
+            if (decorationType) {
+                editor.setDecorations(decorationType, ranges);
+            }
         });
+    }
+
+    private applyHighlightsToEditor(editor: vscode.TextEditor, highlights: CachedHighlight[]): void {
+        this.clearAllEditorDecorations(editor);
+
+        const { colorHighlights, customHighlights } = this.categorizeHighlights(highlights);
+
+        this.applyBuiltInDecorations(editor, colorHighlights);
+        this.applyCustomDecorations(editor, customHighlights);
     }
 
     private async showColorPicker(): Promise<string | undefined> {
@@ -633,12 +672,7 @@ export class HighlightManager {
     private updateDecorations(editor: vscode.TextEditor) {
         const terms = this.getTerms();
         if (terms.length === 0) {
-            // 如果没有高亮词，清空所有装饰
-            decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
-            // 清空自定义颜色装饰
-            if (this.customDecorationTypes) {
-                this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
-            }
+            this.clearAllEditorDecorations(editor);
             this.highlightCache.delete(editor.document);
             return;
         }
@@ -807,6 +841,31 @@ export class HighlightManager {
             overviewRulerColor: customColor.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
             overviewRulerLane: vscode.OverviewRulerLane.Full
         });
+    }
+
+    /**
+     * 清理指定文本相关的自定义装饰器
+     */
+    private disposeDecorationsForText(text: string): void {
+        if (!this.customDecorationTypes) {
+            return;
+        }
+        for (const [key, decorationType] of this.customDecorationTypes) {
+            if (key.startsWith(text)) {
+                decorationType.dispose();
+                this.customDecorationTypes.delete(key);
+            }
+        }
+    }
+
+    /**
+     * 清空编辑器中的所有装饰器
+     */
+    private clearAllEditorDecorations(editor: vscode.TextEditor): void {
+        decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+        if (this.customDecorationTypes) {
+            this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+        }
     }
 }
 
