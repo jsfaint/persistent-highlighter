@@ -36,11 +36,12 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     private _onDidChangeTreeData: vscode.EventEmitter<HighlightItem | undefined | null | void> = new vscode.EventEmitter<HighlightItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<HighlightItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private currentEditor: vscode.TextEditor | undefined;
+    private editorChangeListener: vscode.Disposable;
 
     constructor(private context: vscode.ExtensionContext) {
         this.currentEditor = vscode.window.activeTextEditor;
 
-        vscode.window.onDidChangeActiveTextEditor((editor) => {
+        this.editorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
             this.currentEditor = editor;
             this.refresh();
         });
@@ -162,6 +163,14 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
 
     getTotalHighlights(): number {
         return this.getTerms().length;
+    }
+
+    /**
+     * 释放事件监听器，防止内存泄漏
+     */
+    dispose(): void {
+        this._onDidChangeTreeData.dispose();
+        this.editorChangeListener.dispose();
     }
 }
 

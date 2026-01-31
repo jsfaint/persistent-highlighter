@@ -207,4 +207,22 @@ suite('HighlightsTreeProvider 测试', () => {
         assert.ok(eventFired);
         done();
     });
+
+    test('HighlightsTreeProvider: dispose 方法释放事件监听器', () => {
+        const newProvider = new HighlightsTreeProvider(mockContext);
+
+        // dispose 不应该抛出错误
+        assert.doesNotThrow(() => {
+            newProvider.dispose();
+        });
+    });
+
+    test('HighlightsTreeProvider: 多次 dispose 不应该报错', () => {
+        const newProvider = new HighlightsTreeProvider(mockContext);
+
+        assert.doesNotThrow(() => {
+            newProvider.dispose();
+            newProvider.dispose(); // 第二次调用
+        });
+    });
 });
