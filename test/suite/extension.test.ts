@@ -262,4 +262,46 @@ suite('Extension 核心功能测试', () => {
             manager.dispose();
         });
     });
+
+    test('HighlightManager: validateActiveEditor 缺少文档时返回 null', () => {
+        const manager = new HighlightManager(mockContext);
+
+        // 模拟一个没有 document 的编辑器
+        const mockEditorWithoutDoc: any = {
+            ...mockEditor,
+            document: undefined
+        };
+
+        (vscode.window as any).activeTextEditor = mockEditorWithoutDoc;
+
+        // validateActiveEditor 应该返回 null
+        const result = (manager as any).validateActiveEditor();
+        assert.strictEqual(result, null);
+
+        manager.dispose();
+    });
+
+    test('HighlightManager: validateActiveEditor 正常情况返回编辑器', () => {
+        const manager = new HighlightManager(mockContext);
+
+        (vscode.window as any).activeTextEditor = mockEditor;
+
+        // validateActiveEditor 应该返回编辑器
+        const result = (manager as any).validateActiveEditor();
+        assert.strictEqual(result, mockEditor);
+
+        manager.dispose();
+    });
+
+    test('HighlightManager: validateActiveEditor 没有编辑器时返回 null', () => {
+        const manager = new HighlightManager(mockContext);
+
+        (vscode.window as any).activeTextEditor = undefined;
+
+        // validateActiveEditor 应该返回 null
+        const result = (manager as any).validateActiveEditor();
+        assert.strictEqual(result, null);
+
+        manager.dispose();
+    });
 });

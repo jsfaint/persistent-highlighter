@@ -775,6 +775,13 @@ export class HighlightManager {
             vscode.window.showWarningMessage("No active editor found.");
             return null;
         }
+
+        // 验证文档是否存在
+        if (!editor.document) {
+            vscode.window.showWarningMessage("No document found in active editor.");
+            return null;
+        }
+
         return editor;
     }
 
