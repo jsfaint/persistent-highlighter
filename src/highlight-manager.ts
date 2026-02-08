@@ -27,6 +27,17 @@ export class HighlightManager implements vscode.Disposable {
 
     /**
      * 注册事件监听器
+     * @remarks
+     * 生命周期管理:
+     * - 所有事件监听器通过 this.context.subscriptions 自动管理
+     * - 当扩展停用时,VS Code 会自动释放这些监听器
+     * - 无需手动存储和释放返回的 Disposable 对象
+     *
+     * 监听的事件:
+     * 1. onDidChangeActiveTextEditor - 活动编辑器切换时更新高亮
+     * 2. onDidChangeTextDocument - 文档内容变化时更新高亮
+     * 3. onDidCloseTextDocument - 文档关闭时清理缓存
+     * @private
      */
     private registerEventListeners(): void {
         // 监听活动编辑器的变化

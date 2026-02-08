@@ -11,6 +11,11 @@ export class DecoratorManager {
 
     /**
      * 清空编辑器中的所有装饰器
+     * @param editor 目标文本编辑器
+     * @remarks
+     * 此方法会清除所有已应用的装饰器,包括:
+     * - 内置颜色池的装饰器
+     * - 自定义颜色的装饰器
      */
     public clearAllEditorDecorations(editor: vscode.TextEditor): void {
         // 清除内置颜色装饰器
@@ -22,6 +27,13 @@ export class DecoratorManager {
 
     /**
      * 应用高亮到编辑器
+     * @param editor 目标文本编辑器
+     * @param highlights 要应用的高亮信息数组
+     * @remarks
+     * 此方法会:
+     * 1. 清除编辑器上的所有现有装饰器
+     * 2. 将高亮按颜色分类(内置颜色 vs 自定义颜色)
+     * 3. 批量应用装饰器以提高性能
      */
     public applyHighlightsToEditor(editor: vscode.TextEditor, highlights: CachedHighlight[]): void {
         this.clearAllEditorDecorations(editor);
@@ -34,6 +46,11 @@ export class DecoratorManager {
 
     /**
      * 将高亮按颜色分类
+     * @param highlights 高亮信息数组
+     * @returns 包含两种映射的对象:
+     * - colorHighlights: 按内置 colorId 索引的范围数组
+     * - customHighlights: 按自定义颜色键索引的范围和原始高亮对象
+     * @private
      */
     private categorizeHighlights(highlights: CachedHighlight[]): {
         colorHighlights: Map<number, vscode.Range[]>;
@@ -64,6 +81,8 @@ export class DecoratorManager {
 
     /**
      * 初始化颜色高亮映射表
+     * @returns 为颜色池中的每种颜色创建空数组的映射
+     * @private
      */
     private initializeColorHighlightsMap(): Map<number, vscode.Range[]> {
         const map = new Map<number, vscode.Range[]>();
@@ -75,6 +94,9 @@ export class DecoratorManager {
 
     /**
      * 获取自定义颜色的唯一键
+     * @param highlight 高亮信息对象
+     * @returns 由文本和浅色背景色组成的唯一键,如果缺少自定义颜色则返回 null
+     * @private
      */
     private getCustomColorKey(highlight: CachedHighlight): string | null {
         if (!highlight.customColor?.light) {
@@ -85,6 +107,9 @@ export class DecoratorManager {
 
     /**
      * 应用内置颜色装饰器
+     * @param editor 目标文本编辑器
+     * @param colorHighlights 按 colorId 索引的范围映射
+     * @private
      */
     private applyBuiltInDecorations(
         editor: vscode.TextEditor,
@@ -99,6 +124,11 @@ export class DecoratorManager {
 
     /**
      * 应用自定义颜色装饰器
+     * @param editor 目标文本编辑器
+     * @param customHighlights 按颜色键索引的范围和高亮映射
+     * @remarks
+     * 如果装饰器类型不存在,会先创建并缓存
+     * @private
      */
     private applyCustomDecorations(
         editor: vscode.TextEditor,
@@ -125,6 +155,14 @@ export class DecoratorManager {
 
     /**
      * 创建自定义装饰器类型
+     * @param customColor 自定义颜色定义
+     * @returns VS Code TextEditorDecorationType 对象
+     * @remarks
+     * 装饰器配置包括:
+     * - 浅色/深色主题的背景色和文本色
+     * - 2px 圆角边框
+     * - 概览标尺颜色指示器
+     * @private
      */
     private createCustomDecorationType(customColor: HighlightColor): vscode.TextEditorDecorationType {
         return vscode.window.createTextEditorDecorationType({
@@ -137,7 +175,11 @@ export class DecoratorManager {
     }
 
     /**
-     * 注册自定义装饰器类型（用于外部添加）
+     * 注册自定义装饰器类型(用于外部添加)
+     * @param text 高亮文本
+     * @param color 自定义颜色定义
+     * @remarks
+     * 此方法允许外部预先创建装饰器类型,避免在应用时的重复创建
      */
     public registerCustomDecorationType(text: string, color: HighlightColor): void {
         const customDecorationType = this.createCustomDecorationType(color);
@@ -147,6 +189,9 @@ export class DecoratorManager {
 
     /**
      * 清理指定文本相关的自定义装饰器
+     * @param text 要清理的高亮文本
+     * @remarks
+     * 会释放所有以该文本开头的装饰器类型的资源
      */
     public disposeDecorationsForText(text: string): void {
         for (const [key, decorationType] of this.customDecorationTypes) {
@@ -159,6 +204,10 @@ export class DecoratorManager {
 
     /**
      * 创建颜色键
+     * @param text 高亮文本
+     * @param color 自定义颜色定义
+     * @returns 唯一的颜色键字符串
+     * @private
      */
     private createColorKey(text: string, color: HighlightColor): string {
         return `${text}_${color.light.backgroundColor}`;
@@ -166,6 +215,9 @@ export class DecoratorManager {
 
     /**
      * 释放所有资源
+     * @remarks
+     * 必须在不再需要此管理器时调用,以释放 VS Code 装饰器资源
+     * 实现了 vscode.Disposable 接口的约定
      */
     public dispose(): void {
         for (const decorationType of this.customDecorationTypes.values()) {

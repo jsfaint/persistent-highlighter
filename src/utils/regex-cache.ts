@@ -1,26 +1,49 @@
 /**
+ * 默认缓存大小限制
+ * 对于大型项目,可以通过配置调整此值
+ */
+const DEFAULT_CACHE_SIZE = 100;
+
+/**
  * 正则表达式缓存管理器
  * 避免重复创建相同的正则表达式对象，提高性能
+ *
+ * @remarks
+ * 使用 FIFO (First In First Out) 策略管理缓存:
+ * - 当缓存达到上限时,删除最早添加的条目
+ * - 默认缓存大小为 100,适用于大多数场景
+ * - 对于包含大量独特搜索词的项目,可能需要增加此值
  */
 export class RegexCache {
     private static instance: RegexCache;
     private cache = new Map<string, RegExp>();
-    private maxCacheSize = 100;
+    private readonly maxCacheSize: number;
 
-    private constructor() {}
+    /**
+     * 创建缓存实例
+     * @param cacheSize 最大缓存条目数,默认为 100
+     */
+    private constructor(cacheSize: number = DEFAULT_CACHE_SIZE) {
+        this.maxCacheSize = cacheSize;
+    }
 
     /**
      * 获取单例实例
+     * @param cacheSize 可选的缓存大小,仅在首次创建时生效
+     * @returns RegexCache 单例实例
      */
-    public static getInstance(): RegexCache {
+    public static getInstance(cacheSize?: number): RegexCache {
         if (!RegexCache.instance) {
-            RegexCache.instance = new RegexCache();
+            RegexCache.instance = new RegexCache(cacheSize);
         }
         return RegexCache.instance;
     }
 
     /**
      * 生成缓存键
+     * @param searchText 搜索文本
+     * @param caseSensitive 是否大小写敏感
+     * @returns 唯一的缓存键字符串
      */
     private createKey(searchText: string, caseSensitive: boolean): string {
         return `${caseSensitive ? 's' : 'i'}:${searchText}`;
@@ -28,6 +51,9 @@ export class RegexCache {
 
     /**
      * 获取或创建正则表达式
+     * @param searchText 要搜索的文本
+     * @param caseSensitive 是否大小写敏感
+     * @returns 正则表达式对象,会重置 lastIndex 以便重复使用
      */
     public getRegex(searchText: string, caseSensitive: boolean): RegExp {
         const key = this.createKey(searchText, caseSensitive);
