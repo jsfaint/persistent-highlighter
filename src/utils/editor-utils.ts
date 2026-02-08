@@ -3,6 +3,12 @@ import type { HighlightedTerm, HighlightPosition } from "../types";
 import { RegexCache } from "./regex-cache";
 
 /**
+ * 正则匹配安全上限
+ * 防止无限循环和性能问题
+ */
+const MAX_REGEX_MATCHES = 10000;
+
+/**
  * 编辑器工具类
  * 提供与编辑器相关的通用功能
  */
@@ -64,6 +70,45 @@ export class EditorUtils {
     }
 
     /**
+     * 安全执行正则匹配,防止无限循环
+     * @param regex 正则表达式对象
+     * @param text 要匹配的文本
+     * @param callback 处理每个匹配的回调函数
+     * @returns 匹配数量
+     * @private
+     */
+    private static executeRegexWithSafety(
+        regex: RegExp,
+        text: string,
+        callback: (match: RegExpExecArray, matchCount: number) => void
+    ): number {
+        let match: RegExpExecArray | null;
+        let matchCount = 0;
+        const maxMatches = Math.min(text.length, MAX_REGEX_MATCHES);
+
+        while ((match = regex.exec(text)) !== null) {
+            matchCount++;
+
+            if (matchCount > maxMatches) {
+                console.warn(`Max matches reached for regex`);
+                break;
+            }
+
+            callback(match, matchCount);
+
+            // 防止无限循环：处理 zero-length match
+            if (match.index === regex.lastIndex) {
+                regex.lastIndex++;
+                if (regex.lastIndex > text.length) {
+                    break;
+                }
+            }
+        }
+
+        return matchCount;
+    }
+
+    /**
      * 在文本中查找高亮词的所有位置
      */
     public static findHighlightRanges(
@@ -76,31 +121,12 @@ export class EditorUtils {
 
         try {
             const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive);
-            let match: RegExpExecArray | null;
-            let matchCount = 0;
-            const maxMatches = Math.min(text.length, 10000); // 安全上限
 
-            while ((match = regex.exec(text)) !== null) {
-                matchCount++;
-
-                // 安全检查：防止无限循环
-                if (matchCount > maxMatches) {
-                    console.warn(`Max matches reached for term: ${term.text}`);
-                    break;
-                }
-
+            this.executeRegexWithSafety(regex, text, (match) => {
                 const startPos = document.positionAt(match.index);
                 const endPos = document.positionAt(match.index + match[0].length);
                 ranges.push(new vscode.Range(startPos, endPos));
-
-                // 防止无限循环：处理 zero-length match
-                if (match.index === regex.lastIndex) {
-                    regex.lastIndex++;
-                    if (regex.lastIndex > text.length) {
-                        break;
-                    }
-                }
-            }
+            });
         } catch (error) {
             console.error(`Error finding highlights for term "${term.text}":`, error);
         }
@@ -127,18 +153,8 @@ export class EditorUtils {
 
             try {
                 const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive);
-                let match: RegExpExecArray | null;
-                let matchCount = 0;
-                const maxMatches = Math.min(textContent.length, 10000);
 
-                while ((match = regex.exec(textContent)) !== null) {
-                    matchCount++;
-
-                    if (matchCount > maxMatches) {
-                        console.warn(`Max matches reached for term: ${term.text}`);
-                        break;
-                    }
-
+                this.executeRegexWithSafety(regex, textContent, (match) => {
                     const startPos = document.positionAt(match.index);
                     const endPos = document.positionAt(match.index + match[0].length);
 
@@ -147,15 +163,7 @@ export class EditorUtils {
                         index: match.index,
                         range: new vscode.Range(startPos, endPos)
                     });
-
-                    // 防止无限循环
-                    if (match.index === regex.lastIndex) {
-                        regex.lastIndex++;
-                        if (regex.lastIndex > textContent.length) {
-                            break;
-                        }
-                    }
-                }
+                });
             } catch (error) {
                 console.error(`Error processing term "${term.text}":`, error);
             }
@@ -189,17 +197,10 @@ export class EditorUtils {
 
             try {
                 const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive);
-                let match: RegExpExecArray | null;
-                let matchCount = 0;
-                const maxMatches = Math.min(text.length, 10000);
+                let found = false;
 
-                while ((match = regex.exec(text)) !== null) {
-                    matchCount++;
-
-                    if (matchCount > maxMatches) {
-                        console.warn(`Max matches reached for term: ${term.text}`);
-                        break;
-                    }
+                this.executeRegexWithSafety(regex, text, (match) => {
+                    if (found) return;
 
                     const matchStart = match.index;
                     const matchEnd = matchStart + match[0].length;
@@ -207,17 +208,9 @@ export class EditorUtils {
                     // 检查光标位置是否在这个高亮范围内
                     if (offset >= matchStart && offset <= matchEnd) {
                         highlightedTexts.push(term.text);
-                        break;
+                        found = true;
                     }
-
-                    // 防止无限循环
-                    if (match.index === regex.lastIndex) {
-                        regex.lastIndex++;
-                        if (regex.lastIndex > text.length) {
-                            break;
-                        }
-                    }
-                }
+                });
             } catch (error) {
                 console.error(`Error finding highlight at position for term "${term.text}":`, error);
             }

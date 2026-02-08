@@ -430,10 +430,15 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     /**
-     * 显示颜色选择器
+     * 获取颜色选择器选项
      */
-    async #showColorPicker(): Promise<string | undefined> {
-        const colorOptions = [
+    #getColorPickerOptions(): {
+        label: string;
+        description: string;
+        detail: string;
+        value: string;
+    }[] {
+        return [
             ...presetColorPalette.map((color) => ({
                 label: `$(symbol-color) ${color.name}`,
                 description: color.hex,
@@ -447,6 +452,13 @@ export class HighlightManager implements vscode.Disposable {
                 value: "custom"
             }
         ];
+    }
+
+    /**
+     * 显示颜色选择器
+     */
+    async #showColorPicker(): Promise<string | undefined> {
+        const colorOptions = this.#getColorPickerOptions();
 
         const selected = await vscode.window.showQuickPick(colorOptions, {
             placeHolder: "Choose a color",

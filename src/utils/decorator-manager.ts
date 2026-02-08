@@ -183,8 +183,10 @@ export class DecoratorManager {
      */
     public registerCustomDecorationType(text: string, color: HighlightColor): void {
         const customDecorationType = this.createCustomDecorationType(color);
-        const colorKey = this.createColorKey(text, color);
-        this.customDecorationTypes.set(colorKey, customDecorationType);
+        const colorKey = this.getCustomColorKey({ text, customColor: color } as CachedHighlight);
+        if (colorKey) {
+            this.customDecorationTypes.set(colorKey, customDecorationType);
+        }
     }
 
     /**
@@ -200,17 +202,6 @@ export class DecoratorManager {
                 this.customDecorationTypes.delete(key);
             }
         }
-    }
-
-    /**
-     * 创建颜色键
-     * @param text 高亮文本
-     * @param color 自定义颜色定义
-     * @returns 唯一的颜色键字符串
-     * @private
-     */
-    private createColorKey(text: string, color: HighlightColor): string {
-        return `${text}_${color.light.backgroundColor}`;
     }
 
     /**

@@ -39,13 +39,13 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 /**
- * 注册所有命令
+ * 获取命令配置
  */
-function registerCommands(
-    highlightManager: HighlightManager,
-    treeProvider: HighlightsTreeProvider
-): vscode.Disposable[] {
-    const commands: { command: string; callback: (...args: unknown[]) => unknown }[] = [
+function getCommandConfig(highlightManager: HighlightManager, treeProvider: HighlightsTreeProvider): {
+    command: string;
+    callback: (...args: unknown[]) => unknown;
+}[] {
+    return [
         { command: "persistent-highlighter.addHighlight", callback: () => highlightManager.addHighlight() },
         { command: "persistent-highlighter.removeHighlight", callback: () => highlightManager.removeHighlight() },
         { command: "persistent-highlighter.toggleHighlight", callback: () => highlightManager.toggleHighlight() },
@@ -83,7 +83,16 @@ function registerCommands(
         { command: "persistent-highlighter.contextMenuToggleHighlight", callback: () => highlightManager.toggleHighlight() },
         { command: "persistent-highlighter.contextMenuCustomColor", callback: () => highlightManager.addHighlightWithCustomColor() },
     ];
+}
 
+/**
+ * 注册所有命令
+ */
+function registerCommands(
+    highlightManager: HighlightManager,
+    treeProvider: HighlightsTreeProvider
+): vscode.Disposable[] {
+    const commands = getCommandConfig(highlightManager, treeProvider);
     return commands.map(({ command, callback }) => vscode.commands.registerCommand(command, callback));
 }
 
