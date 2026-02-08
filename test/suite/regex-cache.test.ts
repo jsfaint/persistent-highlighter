@@ -37,27 +37,34 @@ suite("RegexCache Suite", () => {
 
         const text = "test test";
         regex.exec(text); // 执行一次匹配,lastIndex 会改变
-        regex.exec(text); // 第二次匹配
+        regex.exec(text); // 第二次匹配,lastIndex 会再次改变
 
-        // 重置后应该从头开始匹配
-        const match = regex.exec(text);
-        assert.strictEqual(match?.[0], "test", "应该从头开始匹配");
+        // 重新获取 regex,应该重置 lastIndex
+        const regex2 = cache.getRegex("test", false);
+        const match = regex2.exec(text);
+        assert.strictEqual(match?.[0], "test", "重新获取后应该从头开始匹配");
     });
 
     test("缓存应该达到上限时删除最旧的条目", () => {
-        const cache = RegexCache.getInstance(3); // 设置缓存大小为 3
+        // 由于 RegexCache 是单例,我们无法直接测试不同的缓存大小
+        // 这里我们测试缓存的 FIFO 删除功能
+        const cache = RegexCache.getInstance();
 
-        cache.getRegex("test1", false);
-        cache.getRegex("test2", false);
-        cache.getRegex("test3", false);
-        assert.strictEqual(cache.size, 3, "缓存大小应该为 3");
+        // 添加多个条目,超过默认缓存大小(100)
+        for (let i = 0; i < 102; i++) {
+            cache.getRegex(`test${i}`, false);
+        }
 
-        cache.getRegex("test4", false); // 添加第 4 个,应该删除第 1 个
-        assert.strictEqual(cache.size, 3, "缓存大小应该保持为 3");
+        // 缓存大小应该保持为 100
+        assert.strictEqual(cache.size, 100, "缓存大小应该保持为上限");
 
-        // 验证 test1 已被删除
+        // 验证最早的条目已被删除
+        const regex0 = cache.getRegex("test0", false);
         const regex1 = cache.getRegex("test1", false);
-        assert.ok(regex1, "应该能够重新创建已删除的条目");
+
+        // 由于是 FIFO,最早的条目应该已被删除
+        // 我们无法直接验证哪个被删除了,但可以验证缓存大小
+        assert.strictEqual(cache.size, 100, "缓存大小应该保持不变");
     });
 
     test("clear 应该清空所有缓存", () => {

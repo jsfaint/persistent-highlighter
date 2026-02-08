@@ -68,6 +68,9 @@ export class RegexCache {
         // 创建新的正则表达式
         regex = createHighlightRegex(searchText, caseSensitive);
 
+        // 重置新创建的 regex 的 lastIndex
+        regex.lastIndex = 0;
+
         // 缓存管理：如果超出限制，清除最旧的条目
         if (this.cache.size >= this.maxCacheSize) {
             const firstKey = this.cache.keys().next().value;
