@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { EditorUtils } from './utils/editor-utils';
+import type { HighlightedTerm } from './types';
 
 export class HighlightItem extends vscode.TreeItem {
     constructor(
@@ -90,7 +92,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         return item as HighlightItem;
     }
 
-    private createHighlightItem(term: HighlightTerm): HighlightItem {
+    private createHighlightItem(term: HighlightedTerm): HighlightItem {
         return new HighlightItem(
             term.text,
             term.colorId,
@@ -101,7 +103,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         );
     }
 
-    private getActiveTermsForCurrentFile(): HighlightTerm[] {
+    private getActiveTermsForCurrentFile(): HighlightedTerm[] {
         const terms = this.getTerms();
         if (!this.currentEditor) {
             return [];
@@ -110,29 +112,14 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         const fileContent = this.currentEditor.document.getText();
         const caseSensitive = this.getCaseSensitiveConfig();
 
-        return terms.filter(term => this.isTermInFile(term, fileContent, caseSensitive));
-    }
-
-    private isTermInFile(term: HighlightTerm, fileContent: string, caseSensitive: boolean): boolean {
-        if (!term.text || typeof term.text !== 'string') {
-            return false;
-        }
-
-        try {
-            if (caseSensitive) {
-                return fileContent.includes(term.text);
-            }
-            return fileContent.toLowerCase().includes(term.text.toLowerCase());
-        } catch {
-            return false;
-        }
+        return terms.filter(term => EditorUtils.isTermInFile(term, fileContent, caseSensitive));
     }
 
     private getCaseSensitiveConfig(): boolean {
         return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
     }
 
-    private getTerms(): HighlightTerm[] {
+    private getTerms(): HighlightedTerm[] {
         return this.context.globalState.get('persistentHighlighterTerms', []);
     }
 
@@ -172,11 +159,4 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         this._onDidChangeTreeData.dispose();
         this.editorChangeListener.dispose();
     }
-}
-
-interface HighlightTerm {
-    text: string;
-    colorId: number;
-    isCustomColor?: boolean;
-    customColor?: { light: { backgroundColor: string }; dark: { backgroundColor: string } };
 }

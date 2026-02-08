@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { HighlightedTerm } from '../../src/extension';
+import { HighlightedTerm } from '../../src/types';
 
 /**
  * 创建模拟的 ExtensionContext
