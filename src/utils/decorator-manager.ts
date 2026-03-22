@@ -61,7 +61,7 @@ export class DecoratorManager {
 
         for (const highlight of highlights) {
             if (highlight.isCustomColor && highlight.customColor) {
-                const colorKey = this.getCustomColorKey(highlight);
+                const colorKey = this.getCustomColorKey(highlight.text, highlight.customColor);
                 if (colorKey) {
                     if (!customHighlights.has(colorKey)) {
                         customHighlights.set(colorKey, { ranges: [], highlight });
@@ -94,15 +94,16 @@ export class DecoratorManager {
 
     /**
      * 获取自定义颜色的唯一键
-     * @param highlight 高亮信息对象
+     * @param text 高亮文本
+     * @param customColor 自定义颜色定义
      * @returns 由文本和浅色背景色组成的唯一键,如果缺少自定义颜色则返回 null
      * @private
      */
-    private getCustomColorKey(highlight: CachedHighlight): string | null {
-        if (!highlight.customColor?.light) {
+    private getCustomColorKey(text: string, customColor?: HighlightColor): string | null {
+        if (!customColor?.light) {
             return null;
         }
-        return `${highlight.text}_${highlight.customColor.light.backgroundColor}`;
+        return `${text}_${customColor.light.backgroundColor}`;
     }
 
     /**
@@ -135,7 +136,7 @@ export class DecoratorManager {
         customHighlights: Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>
     ): void {
         customHighlights.forEach(({ ranges, highlight }) => {
-            const colorKey = this.getCustomColorKey(highlight);
+            const colorKey = this.getCustomColorKey(highlight.text, highlight.customColor);
 
             if (!colorKey || !highlight.customColor) {
                 return;
@@ -183,7 +184,7 @@ export class DecoratorManager {
      */
     public registerCustomDecorationType(text: string, color: HighlightColor): void {
         const customDecorationType = this.createCustomDecorationType(color);
-        const colorKey = this.getCustomColorKey({ text, customColor: color } as CachedHighlight);
+        const colorKey = this.getCustomColorKey(text, color);
         if (colorKey) {
             this.customDecorationTypes.set(colorKey, customDecorationType);
         }
