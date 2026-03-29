@@ -213,8 +213,8 @@ suite("DecoratorManager Suite", () => {
             customColor: customColor
         };
 
-        const key1 = decoratorManager["getCustomColorKey"](highlight);
-        const key2 = decoratorManager["getCustomColorKey"](highlight);
+        const key1 = decoratorManager["getCustomColorKey"](highlight.text, highlight.customColor);
+        const key2 = decoratorManager["getCustomColorKey"](highlight.text, highlight.customColor);
 
         assert.strictEqual(key1, key2, "应该生成相同的键");
     });
@@ -227,7 +227,7 @@ suite("DecoratorManager Suite", () => {
             isCustomColor: false
         };
 
-        const key = decoratorManager["getCustomColorKey"](highlight);
+        const key = decoratorManager["getCustomColorKey"](highlight.text, highlight.customColor);
         assert.strictEqual(key, null, "缺少自定义颜色应该返回 null");
     });
 });

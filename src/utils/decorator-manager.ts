@@ -135,10 +135,9 @@ export class DecoratorManager {
         editor: vscode.TextEditor,
         customHighlights: Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>
     ): void {
-        customHighlights.forEach(({ ranges, highlight }) => {
-            const colorKey = this.getCustomColorKey(highlight.text, highlight.customColor);
-
-            if (!colorKey || !highlight.customColor) {
+        customHighlights.forEach(({ ranges, highlight }, colorKey) => {
+            // 直接使用 Map 的键，避免重复计算 getCustomColorKey
+            if (!highlight.customColor) {
                 return;
             }
 
