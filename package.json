@@ -88,22 +88,6 @@
       {
         "command": "persistent-highlighter.jumpToPrevHighlight",
         "title": "Persistent Highlighter: Jump to Previous Highlight"
-      },
-      {
-        "command": "persistent-highlighter.contextMenuAddHighlight",
-        "title": "Add Highlight"
-      },
-      {
-        "command": "persistent-highlighter.contextMenuRemoveHighlight",
-        "title": "Remove Highlight"
-      },
-      {
-        "command": "persistent-highlighter.contextMenuToggleHighlight",
-        "title": "Toggle Highlight"
-      },
-      {
-        "command": "persistent-highlighter.contextMenuCustomColor",
-        "title": "Add Custom Color Highlight"
       }
     ],
     "views": {
@@ -147,44 +131,44 @@
           "group": "9_cutcopypaste"
         },
         {
-          "command": "persistent-highlighter.contextMenuAddHighlight",
+          "command": "persistent-highlighter.addHighlight",
           "when": "config.persistent-highlighter.enableContextMenu && !config.persistent-highlighter.contextMenuCollapsed",
           "group": "1_highlight"
         },
         {
-          "command": "persistent-highlighter.contextMenuRemoveHighlight",
+          "command": "persistent-highlighter.removeHighlight",
           "when": "config.persistent-highlighter.enableContextMenu && !config.persistent-highlighter.contextMenuCollapsed",
           "group": "1_highlight"
         },
         {
-          "command": "persistent-highlighter.contextMenuToggleHighlight",
+          "command": "persistent-highlighter.toggleHighlight",
           "when": "config.persistent-highlighter.enableContextMenu && !config.persistent-highlighter.contextMenuCollapsed",
           "group": "1_highlight"
         },
         {
-          "command": "persistent-highlighter.contextMenuCustomColor",
+          "command": "persistent-highlighter.addHighlightWithCustomColor",
           "when": "config.persistent-highlighter.enableContextMenu && !config.persistent-highlighter.contextMenuCollapsed",
           "group": "1_highlight"
         }
       ],
       "persistent-highlighter.contextMenu": [
         {
-          "command": "persistent-highlighter.contextMenuAddHighlight",
+          "command": "persistent-highlighter.addHighlight",
           "when": "config.persistent-highlighter.enableContextMenu",
           "group": "1_highlight"
         },
         {
-          "command": "persistent-highlighter.contextMenuRemoveHighlight",
+          "command": "persistent-highlighter.removeHighlight",
           "when": "config.persistent-highlighter.enableContextMenu",
           "group": "1_highlight"
         },
         {
-          "command": "persistent-highlighter.contextMenuToggleHighlight",
+          "command": "persistent-highlighter.toggleHighlight",
           "when": "config.persistent-highlighter.enableContextMenu",
           "group": "1_highlight"
         },
         {
-          "command": "persistent-highlighter.contextMenuCustomColor",
+          "command": "persistent-highlighter.addHighlightWithCustomColor",
           "when": "config.persistent-highlighter.enableContextMenu",
           "group": "1_highlight"
         }

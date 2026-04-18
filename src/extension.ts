@@ -76,12 +76,7 @@ function getCommandConfig(highlightManager: HighlightManager, treeProvider: High
                     highlightManager.refreshHighlights();
                 }
             }
-        },
-        // 右键菜单命令
-        { command: "persistent-highlighter.contextMenuAddHighlight", callback: () => highlightManager.addHighlight() },
-        { command: "persistent-highlighter.contextMenuRemoveHighlight", callback: () => highlightManager.removeHighlight() },
-        { command: "persistent-highlighter.contextMenuToggleHighlight", callback: () => highlightManager.toggleHighlight() },
-        { command: "persistent-highlighter.contextMenuCustomColor", callback: () => highlightManager.addHighlightWithCustomColor() },
+        }
     ];
 }
 
