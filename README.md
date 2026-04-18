@@ -1,6 +1,6 @@
 # Persistent Highlighter
 
-A Visual Studio Code extension that allows you to permanently highlight text in your code.
+A Visual Studio Code extension that lets you persistently highlight text in your code and manage those highlights as reusable rules.
 
 Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/items?itemName=jsfaint.persistent-highlighter)
 
@@ -19,6 +19,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
 - **Rule Scope Control**: Limit highlights to the current workspace, file, or language.
 - **Per-Rule Settings**: Toggle enable state, case sensitivity, and match mode for each highlight rule.
+- **Regex Rule Validation**: Prevents invalid regex patterns from being saved when editing existing regex rules.
 - **Cross-Session Persistence**: Highlights persist across VS Code sessions.
 - **Case Sensitive Matching**: Optional case-sensitive search for highlights.
 - **Large File Optimization**: Intelligent performance optimization for large files.
@@ -89,7 +90,7 @@ You can now access highlighting operations directly from the editor's right-clic
 1. Open the Explorer sidebar (`Ctrl+Shift+E`).
 2. Find the "Highlights" section at the bottom.
 3. Use the tree view to:
-   - See all highlighted terms across all files
+   - See the highlight rules that currently apply to the active file
    - Jump to specific highlights
    - Edit highlight rules
    - Remove individual highlights
@@ -107,6 +108,8 @@ Use `Persistent Highlighter: Edit Highlight Rule` from the Command Palette, or c
    - Enable or disable the rule without deleting it
    - Toggle case-sensitive matching
    - Change match mode between Whole Word, Substring, and Regex
+
+When a rule is already using `Regex` mode, editing its text validates the new pattern before saving. Invalid patterns are rejected instead of being stored as broken rules.
 
 ## Configuration
 
@@ -148,6 +151,20 @@ The extension offers 18 carefully selected preset colors:
 
 ## Recent Updates
 
+### Version 0.2.0
+
+- **Scoped Highlight Rules**:
+  - Added per-rule scope control for Global, Current Workspace, Current File, and Current Language
+  - Sidebar entries now display scope and match mode so you can understand rule behavior at a glance
+- **Rule Management Improvements**:
+  - Added `Persistent Highlighter: Edit Highlight Rule`
+  - Each rule can now toggle enabled state, case sensitivity, and match mode independently
+  - Invalid regex edits are now blocked before they can be persisted
+- **Testing and Type Safety**:
+  - Added regression coverage for regex rule editing
+  - Tightened test mocks and removed the remaining non-null assertion in `DecoratorManager`
+  - Test suite now passes with **73 tests**
+
 ### Version 0.1.0
 
 - **Major Code Quality Improvements**:
@@ -168,7 +185,7 @@ The extension offers 18 carefully selected preset colors:
   - Replaced manual loops with `findLast` for cleaner, more efficient code
   - Improved type safety with `at()` method for array access
 - **Test Coverage**:
-  - All 68 unit tests passing
+  - All 68 tests passing at release time
   - Added `MockDecorationType` class for testing decoration lifecycle
   - Improved test error handling for VS Code decoration types
   - Enhanced test reliability with proper mock implementations
