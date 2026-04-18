@@ -74,7 +74,7 @@
       },
       {
         "command": "persistent-highlighter.editHighlight",
-        "title": "Persistent Highlighter: Edit Highlight",
+        "title": "Persistent Highlighter: Edit Highlight Rule",
         "icon": "$(edit)"
       },
       {

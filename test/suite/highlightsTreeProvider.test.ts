@@ -23,9 +23,9 @@ suite('HighlightsTreeProvider 测试', () => {
 
         // 设置初始测试数据到 globalState
         let testTerms = [
-            { text: 'test', colorId: 0 },
-            { text: 'highlight', colorId: 1 },
-            { text: 'code', colorId: 2 }
+            { id: 'highlight:test', text: 'test', colorId: 0, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' },
+            { id: 'highlight:highlight', text: 'highlight', colorId: 1, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' },
+            { id: 'highlight:code', text: 'code', colorId: 2, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' }
         ];
         (mockContext.globalState as any).get = (key: string) => {
             if (key === 'persistentHighlighterTerms') {
@@ -55,14 +55,18 @@ suite('HighlightsTreeProvider 测试', () => {
 
     test('HighlightItem: 创建高亮项', () => {
         const item = new HighlightItem(
+            'highlight:test',
             'test',
             0,
-            vscode.TreeItemCollapsibleState.None
+            vscode.TreeItemCollapsibleState.None,
+            true,
+            'Global',
+            'Whole Word'
         );
 
         assert.strictEqual(item.label, 'test');
         assert.strictEqual(item.colorId, 0);
-        assert.strictEqual(item.description, 'Color 1');
+        assert.strictEqual(item.description, 'Global · Whole Word · Color 1');
         assert.strictEqual(item.contextValue, 'highlightItem');
         assert.ok(item.command);
     });
@@ -74,23 +78,31 @@ suite('HighlightsTreeProvider 测试', () => {
         };
 
         const item = new HighlightItem(
+            'highlight:test',
             'test',
             25,
             vscode.TreeItemCollapsibleState.None,
+            true,
+            'Global',
+            'Whole Word',
             true,
             customColor
         );
 
         assert.strictEqual(item.label, 'test');
         assert.strictEqual(item.isCustomColor, true);
-        assert.strictEqual(item.description, 'Custom Color');
+        assert.strictEqual(item.description, 'Global · Whole Word · Custom Color');
     });
 
     test('HighlightItem: 无编辑器时禁用跳转', () => {
         const item = new HighlightItem(
+            'highlight:test',
             'test',
             0,
             vscode.TreeItemCollapsibleState.None,
+            true,
+            'Global',
+            'Whole Word',
             false,
             undefined,
             false // hasActiveEditor = false
@@ -137,7 +149,7 @@ suite('HighlightsTreeProvider 测试', () => {
 
     test('HighlightsTreeProvider: removeHighlight', () => {
         const totalBefore = treeProvider.getTotalHighlights();
-        treeProvider.removeHighlight('test');
+        treeProvider.removeHighlight('highlight:test');
         const totalAfter = treeProvider.getTotalHighlights();
         assert.strictEqual(totalAfter, totalBefore - 1);
     });

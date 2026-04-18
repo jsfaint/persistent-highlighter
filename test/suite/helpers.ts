@@ -35,6 +35,7 @@ export function createMockContext(): vscode.ExtensionContext {
 export function createMockDocument(content: string, uri?: string): vscode.TextDocument {
     const mockDocument: any = {
         getText: () => content,
+        languageId: 'typescript',
         get uri(): vscode.Uri {
             return vscode.Uri.parse(uri || 'file:///mock/document.txt');
         },
@@ -104,9 +105,9 @@ export function createMockRange(startLine: number, startChar: number, endLine: n
  */
 export function createMockTerms(): HighlightedTerm[] {
     return [
-        { text: 'test', colorId: 0 },
-        { text: 'highlight', colorId: 1 },
-        { text: 'code', colorId: 2 }
+        { id: 'highlight:test', text: 'test', colorId: 0, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' },
+        { id: 'highlight:highlight', text: 'highlight', colorId: 1, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' },
+        { id: 'highlight:code', text: 'code', colorId: 2, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' }
     ];
 }
 
@@ -116,7 +117,7 @@ export function createMockTerms(): HighlightedTerm[] {
 export function createMockConfiguration(caseSensitive: boolean = false): vscode.WorkspaceConfiguration {
     const mockConfig: any = {
         get: (section: string, defaultValue?: any) => {
-            if (section === 'persistent-highlighter.caseSensitive') {
+            if (section === 'persistent-highlighter.caseSensitive' || section === 'caseSensitive') {
                 return caseSensitive;
             }
             return defaultValue;
@@ -148,8 +149,10 @@ export function setupVSCodeMocks() {
     // Mock vscode.workspace
     (vscode as any).workspace = {
         getConfiguration: () => createMockConfiguration(),
+        getWorkspaceFolder: (uri: vscode.Uri) => ({ uri: vscode.Uri.parse('file:///mock') }),
         onDidChangeTextDocument: () => ({ dispose: () => {} }),
-        onDidCloseTextDocument: () => ({ dispose: () => {} })
+        onDidCloseTextDocument: () => ({ dispose: () => {} }),
+        onDidChangeConfiguration: () => ({ dispose: () => {} })
     };
 }
 

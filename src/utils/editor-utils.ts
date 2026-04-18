@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { HighlightedTerm, HighlightPosition } from "../types";
 import { RegexCache } from "./regex-cache";
+import { getHighlightCaseSensitive } from "./highlight-term-utils";
 
 /**
  * 正则匹配安全上限
@@ -114,13 +115,14 @@ export class EditorUtils {
     public static findHighlightRanges(
         document: vscode.TextDocument,
         term: HighlightedTerm,
-        caseSensitive: boolean
+        defaultCaseSensitive: boolean
     ): vscode.Range[] {
         const text = document.getText();
         const ranges: vscode.Range[] = [];
+        const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
 
         try {
-            const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive);
+            const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
 
             this.executeRegexWithSafety(regex, text, (match) => {
                 const startPos = document.positionAt(match.index);
@@ -140,7 +142,7 @@ export class EditorUtils {
     public static findAllHighlightsInEditor(
         editor: vscode.TextEditor,
         terms: HighlightedTerm[],
-        caseSensitive: boolean
+        defaultCaseSensitive: boolean
     ): HighlightPosition[] {
         const allHighlights: HighlightPosition[] = [];
         const document = editor.document;
@@ -152,7 +154,8 @@ export class EditorUtils {
             }
 
             try {
-                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive);
+                const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
+                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
 
                 this.executeRegexWithSafety(regex, textContent, (match) => {
                     const startPos = document.positionAt(match.index);
@@ -179,7 +182,7 @@ export class EditorUtils {
         editor: vscode.TextEditor,
         position: vscode.Position,
         terms: HighlightedTerm[],
-        caseSensitive: boolean
+        defaultCaseSensitive: boolean
     ): string[] {
         if (terms.length === 0) {
             return [];
@@ -196,7 +199,8 @@ export class EditorUtils {
             }
 
             try {
-                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive);
+                const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
+                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
                 let found = false;
 
                 this.executeRegexWithSafety(regex, text, (match) => {
@@ -225,17 +229,16 @@ export class EditorUtils {
     public static isTermInFile(
         term: HighlightedTerm,
         fileContent: string,
-        caseSensitive: boolean
+        defaultCaseSensitive: boolean
     ): boolean {
         if (!term.text || typeof term.text !== 'string') {
             return false;
         }
 
         try {
-            if (caseSensitive) {
-                return fileContent.includes(term.text);
-            }
-            return fileContent.toLowerCase().includes(term.text.toLowerCase());
+            const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
+            const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
+            return regex.test(fileContent);
         } catch {
             return false;
         }

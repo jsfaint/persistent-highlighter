@@ -1,10 +1,33 @@
 import * as vscode from "vscode";
 import type { HighlightsTreeProvider } from "./highlightsTreeProvider";
-import type { HighlightedTerm, HighlightPosition, CachedHighlight, HighlightColor } from "./types";
+import type {
+    CachedHighlight,
+    HighlightColor,
+    HighlightMatchMode,
+    HighlightPosition,
+    HighlightScopeType,
+    HighlightedTerm
+} from "./types";
 import { GLOBAL_STATE_KEY, colorPool, CUSTOM_COLOR_ID_OFFSET, presetColorPalette } from "./constants";
 import { DecoratorManager } from "./utils/decorator-manager";
 import { EditorUtils } from "./utils/editor-utils";
 import { ColorUtils } from "./utils/color-utils";
+import {
+    doesHighlightApplyToDocument,
+    getHighlightMatchModeLabel,
+    getHighlightScopeLabel,
+    highlightedTermsNeedMigration,
+    normalizeHighlightedTerm,
+    normalizeHighlightedTerms
+} from "./utils/highlight-term-utils";
+import { createHighlightRegex } from "./utils/regex-cache";
+
+type HighlightRuleAction =
+    | "editText"
+    | "changeScope"
+    | "toggleEnabled"
+    | "toggleCaseSensitive"
+    | "changeMatchMode";
 
 /**
  * 高亮管理器
@@ -22,24 +45,14 @@ export class HighlightManager implements vscode.Disposable {
         this.#decoratorManager = new DecoratorManager();
 
         this.#registerEventListeners();
+        void this.#migrateStoredTerms();
         this.#initializeHighlights();
     }
 
     /**
      * 注册事件监听器
-     * @remarks
-     * 生命周期管理:
-     * - 所有事件监听器通过 this.#context.subscriptions 自动管理
-     * - 当扩展停用时,VS Code 会自动释放这些监听器
-     * - 无需手动存储和释放返回的 Disposable 对象
-     *
-     * 监听的事件:
-     * 1. onDidChangeActiveTextEditor - 活动编辑器切换时更新高亮
-     * 2. onDidChangeTextDocument - 文档内容变化时更新高亮
-     * 3. onDidCloseTextDocument - 文档关闭时清理缓存
      */
     #registerEventListeners(): void {
-        // 监听活动编辑器的变化
         vscode.window.onDidChangeActiveTextEditor(
             (editor) => {
                 if (editor) {
@@ -50,7 +63,6 @@ export class HighlightManager implements vscode.Disposable {
             this.#context.subscriptions
         );
 
-        // 监听文档内容的变化
         vscode.workspace.onDidChangeTextDocument(
             (event) => {
                 const activeEditor = vscode.window.activeTextEditor;
@@ -62,10 +74,21 @@ export class HighlightManager implements vscode.Disposable {
             this.#context.subscriptions
         );
 
-        // 监听文档关闭事件，清理缓存
         vscode.workspace.onDidCloseTextDocument(
             (document) => {
                 this.#highlightCache.delete(document);
+            },
+            null,
+            this.#context.subscriptions
+        );
+
+        vscode.workspace.onDidChangeConfiguration(
+            (event) => {
+                if (event.affectsConfiguration("persistent-highlighter.caseSensitive")) {
+                    void this.#migrateStoredTerms();
+                    this.#refreshAllEditors();
+                    this.#refreshSidebar();
+                }
             },
             null,
             this.#context.subscriptions
@@ -104,9 +127,9 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         const colorId = terms.length % colorPool.length;
-        terms.push({ text: trimmedText, colorId });
+        terms.push(this.#createStandardHighlight(trimmedText, colorId));
 
-        this.#updateGlobalState(terms);
+        void this.#updateGlobalState(terms);
     }
 
     /**
@@ -125,16 +148,31 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         const terms = this.#getTerms();
-        const termIndex = this.#findTermIndex(terms, textToRemove);
+        const termIndex = this.#findTermIndex(terms, textToRemove, editor.document);
 
         if (termIndex === -1) {
             vscode.window.showInformationMessage(`'${textToRemove}' is not currently highlighted.`);
             return;
         }
 
-        this.#decoratorManager.disposeDecorationsForText(terms[termIndex].text);
-        terms.splice(termIndex, 1);
-        this.#updateGlobalState(terms);
+        this.#removeTermAtIndex(terms, termIndex);
+    }
+
+    /**
+     * 根据规则 id 移除高亮
+     */
+    removeHighlightById(ruleId: string): void {
+        if (!ruleId) {
+            return;
+        }
+
+        const terms = this.#getTerms();
+        const termIndex = terms.findIndex((term) => term.id === ruleId);
+        if (termIndex === -1) {
+            return;
+        }
+
+        this.#removeTermAtIndex(terms, termIndex);
     }
 
     /**
@@ -143,7 +181,6 @@ export class HighlightManager implements vscode.Disposable {
     toggleHighlight(): void {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
-            // 尝试从 visibleTextEditors 中获取第一个编辑器
             const visibleEditors = vscode.window.visibleTextEditors;
             if (visibleEditors.length > 0) {
                 this.#toggleHighlightForEditor(visibleEditors[0]);
@@ -160,15 +197,18 @@ export class HighlightManager implements vscode.Disposable {
     #toggleHighlightForEditor(editor: vscode.TextEditor): void {
         const currentPosition = editor.selection.active;
         const caseSensitive = this.#getCaseSensitiveConfig();
-        const terms = this.#getTerms();
+        const terms = this.#getApplicableTerms(editor.document, true);
         const highlightsAtPosition = EditorUtils.findHighlightsAtPosition(
-            editor, currentPosition, terms, caseSensitive
+            editor,
+            currentPosition,
+            terms.filter((term) => term.enabled !== false),
+            caseSensitive
         );
 
         if (highlightsAtPosition.length > 0) {
             const firstHighlight = highlightsAtPosition.at(0);
             if (firstHighlight) {
-                this.#removeHighlightByText(firstHighlight);
+                this.#removeHighlightByText(firstHighlight, editor.document);
             }
             return;
         }
@@ -177,17 +217,62 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     /**
+     * 配置单条高亮规则
+     */
+    async editHighlightRule(ruleId?: string): Promise<void> {
+        const terms = this.#getTerms();
+        if (terms.length === 0) {
+            vscode.window.showInformationMessage("There are no highlights to edit.");
+            return;
+        }
+
+        const selectedRule = ruleId
+            ? terms.find((term) => term.id === ruleId)
+            : await this.#pickHighlightRule(terms);
+
+        if (!selectedRule) {
+            return;
+        }
+
+        const action = await this.#pickRuleAction(selectedRule);
+        if (!action) {
+            return;
+        }
+
+        const updatedRule = await this.#applyRuleAction(selectedRule, action, terms);
+        if (!updatedRule) {
+            return;
+        }
+
+        const updatedTerms = terms.map((term) => term.id === selectedRule.id ? updatedRule : term);
+
+        if (selectedRule.text !== updatedRule.text || selectedRule.isCustomColor) {
+            this.#decoratorManager.disposeDecorationsForText(selectedRule.text);
+        }
+
+        if (updatedRule.isCustomColor && updatedRule.customColor) {
+            this.#decoratorManager.registerCustomDecorationType(updatedRule.text, updatedRule.customColor);
+        }
+
+        await this.#updateGlobalState(updatedTerms);
+    }
+
+    /**
      * 根据文本移除高亮
      */
-    #removeHighlightByText(text: string): void {
+    #removeHighlightByText(text: string, document?: vscode.TextDocument): void {
         const terms = this.#getTerms();
-        const termIndex = this.#findTermIndex(terms, text);
+        const termIndex = this.#findTermIndex(terms, text, document);
 
         if (termIndex !== -1) {
-            this.#decoratorManager.disposeDecorationsForText(terms[termIndex].text);
-            terms.splice(termIndex, 1);
-            this.#updateGlobalState(terms);
+            this.#removeTermAtIndex(terms, termIndex);
         }
+    }
+
+    #removeTermAtIndex(terms: HighlightedTerm[], termIndex: number): void {
+        this.#decoratorManager.disposeDecorationsForText(terms[termIndex].text);
+        terms.splice(termIndex, 1);
+        void this.#updateGlobalState(terms);
     }
 
     /**
@@ -202,16 +287,30 @@ export class HighlightManager implements vscode.Disposable {
 
         const terms = this.#getTerms();
         const trimmedText = textToToggle.trim();
-        const termIndex = this.#findTermIndex(terms, trimmedText);
+        const termIndex = this.#findTermIndex(terms, trimmedText, editor.document);
 
         if (termIndex !== -1) {
             terms.splice(termIndex, 1);
         } else {
             const colorId = terms.length % colorPool.length;
-            terms.push({ text: trimmedText, colorId });
+            terms.push(this.#createStandardHighlight(trimmedText, colorId));
         }
 
-        this.#updateGlobalState(terms);
+        void this.#updateGlobalState(terms);
+    }
+
+    #createStandardHighlight(text: string, colorId: number): HighlightedTerm {
+        return normalizeHighlightedTerm(
+            {
+                text,
+                colorId,
+                enabled: true,
+                caseSensitive: this.#getCaseSensitiveConfig(),
+                matchMode: "wholeWord",
+                scopeType: "global"
+            },
+            this.#getCaseSensitiveConfig()
+        );
     }
 
     /**
@@ -224,10 +323,9 @@ export class HighlightManager implements vscode.Disposable {
             return;
         }
 
-        // 释放所有自定义装饰器
         this.#decoratorManager.dispose();
 
-        this.#updateGlobalState([]);
+        void this.#updateGlobalState([]);
         vscode.window.showInformationMessage("All highlights have been cleared.");
     }
 
@@ -278,13 +376,23 @@ export class HighlightManager implements vscode.Disposable {
     #addOrUpdateHighlightWithColor(text: string, color: HighlightColor): void {
         const terms = this.#getTerms();
         const termIndex = this.#findTermIndex(terms, text);
+        const currentRule = termIndex !== -1 ? terms[termIndex] : undefined;
 
-        const highlightData: HighlightedTerm = {
-            text,
-            colorId: CUSTOM_COLOR_ID_OFFSET,
-            isCustomColor: true,
-            customColor: color
-        };
+        const highlightData = normalizeHighlightedTerm(
+            {
+                ...currentRule,
+                text,
+                colorId: CUSTOM_COLOR_ID_OFFSET,
+                enabled: currentRule?.enabled ?? true,
+                caseSensitive: currentRule?.caseSensitive ?? this.#getCaseSensitiveConfig(),
+                matchMode: currentRule?.matchMode ?? "wholeWord",
+                scopeType: currentRule?.scopeType ?? "global",
+                scopeValue: currentRule?.scopeValue,
+                isCustomColor: true,
+                customColor: color
+            },
+            this.#getCaseSensitiveConfig()
+        );
 
         if (termIndex !== -1) {
             terms[termIndex] = highlightData;
@@ -292,14 +400,13 @@ export class HighlightManager implements vscode.Disposable {
             terms.push(highlightData);
         }
 
-        this.#context.globalState.update(GLOBAL_STATE_KEY, terms);
+        void this.#context.globalState.update(GLOBAL_STATE_KEY, terms);
     }
 
     /**
      * 跳转到指定高亮
      */
     jumpToHighlight(text: string): void {
-        // 验证输入参数
         if (!text || typeof text !== 'string') {
             vscode.window.showErrorMessage('Invalid highlight text provided.');
             return;
@@ -311,8 +418,14 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         const caseSensitive = this.#getCaseSensitiveConfig();
+        const matchedRule = this.#getApplicableTerms(editor.document, false)
+            .find((term) => EditorUtils.textEquals(term.text, text, caseSensitive));
 
-        const ranges = EditorUtils.findHighlightRanges(editor.document, { text, colorId: 0 }, caseSensitive);
+        const ranges = EditorUtils.findHighlightRanges(
+            editor.document,
+            matchedRule ?? this.#createStandardHighlight(text, 0),
+            caseSensitive
+        );
         const firstRange = ranges.at(0);
 
         if (!firstRange) {
@@ -364,7 +477,7 @@ export class HighlightManager implements vscode.Disposable {
      * 获取编辑器中的所有高亮并排序
      */
     #getAllHighlightsInEditor(editor: vscode.TextEditor): HighlightPosition[] {
-        const terms = this.#getTerms();
+        const terms = this.#getApplicableTerms(editor.document, false);
         if (terms.length === 0) {
             return [];
         }
@@ -384,21 +497,19 @@ export class HighlightManager implements vscode.Disposable {
         direction: 1 | -1
     ): HighlightPosition | null {
         if (direction === 1) {
-            // 找下一个
             const nextHighlight = highlights.find((h) => h.index > currentOffset);
             return nextHighlight ?? highlights.at(0) ?? null;
-        } else {
-            // 找上一个
-            const prevHighlight = highlights.findLast((h) => h.index < currentOffset);
-            return prevHighlight ?? highlights.at(-1) ?? null;
         }
+
+        const prevHighlight = highlights.findLast((h) => h.index < currentOffset);
+        return prevHighlight ?? highlights.at(-1) ?? null;
     }
 
     /**
      * 更新编辑器装饰
      */
     #updateDecorations(editor: vscode.TextEditor): void {
-        const terms = this.#getTerms();
+        const terms = this.#getApplicableTerms(editor.document, false);
         if (terms.length === 0) {
             this.#decoratorManager.clearAllEditorDecorations(editor);
             this.#highlightCache.delete(editor.document);
@@ -422,11 +533,274 @@ export class HighlightManager implements vscode.Disposable {
             }
         }
 
-        // 缓存结果
         this.#highlightCache.set(editor.document, highlights);
-
-        // 应用高亮到编辑器
         this.#decoratorManager.applyHighlightsToEditor(editor, highlights);
+    }
+
+    #getApplicableTerms(document: vscode.TextDocument, includeDisabled: boolean): HighlightedTerm[] {
+        return this.#getTerms().filter((term) => {
+            if (!doesHighlightApplyToDocument(term, document)) {
+                return false;
+            }
+            return includeDisabled || term.enabled !== false;
+        });
+    }
+
+    async #migrateStoredTerms(): Promise<void> {
+        const rawTerms = this.#context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
+        if (!highlightedTermsNeedMigration(rawTerms, this.#getCaseSensitiveConfig())) {
+            return;
+        }
+
+        const normalizedTerms = normalizeHighlightedTerms(rawTerms, this.#getCaseSensitiveConfig());
+        await this.#updateGlobalState(normalizedTerms);
+    }
+
+    async #pickHighlightRule(terms: HighlightedTerm[]): Promise<HighlightedTerm | undefined> {
+        const selected = await vscode.window.showQuickPick(
+            terms.map((term) => ({
+                label: term.text,
+                description: [term.enabled === false ? "Disabled" : undefined, getHighlightScopeLabel(term)].filter(Boolean).join(" · "),
+                detail: getHighlightMatchModeLabel(term),
+                term
+            })),
+            {
+                placeHolder: "Select a highlight rule to edit",
+                title: "Edit Highlight Rule"
+            }
+        );
+
+        return selected?.term;
+    }
+
+    async #pickRuleAction(term: HighlightedTerm): Promise<HighlightRuleAction | undefined> {
+        const selected = await vscode.window.showQuickPick(
+            [
+                {
+                    label: "$(edit) Edit Text",
+                    description: term.text,
+                    detail: "Rename the stored highlight text",
+                    action: "editText" as HighlightRuleAction
+                },
+                {
+                    label: "$(symbol-namespace) Change Scope",
+                    description: getHighlightScopeLabel(term),
+                    detail: "Switch between global, workspace, file, and language scope",
+                    action: "changeScope" as HighlightRuleAction
+                },
+                {
+                    label: "$(pass) Toggle Enabled",
+                    description: term.enabled === false ? "Disabled" : "Enabled",
+                    detail: "Disable or re-enable this rule without deleting it",
+                    action: "toggleEnabled" as HighlightRuleAction
+                },
+                {
+                    label: "$(case-sensitive) Toggle Case Sensitive",
+                    description: term.caseSensitive ? "Case Sensitive" : "Case Insensitive",
+                    detail: "Control whether matching respects casing",
+                    action: "toggleCaseSensitive" as HighlightRuleAction
+                },
+                {
+                    label: "$(regex) Change Match Mode",
+                    description: getHighlightMatchModeLabel(term),
+                    detail: "Choose whole word, substring, or regex matching",
+                    action: "changeMatchMode" as HighlightRuleAction
+                }
+            ],
+            {
+                placeHolder: `Edit rule: ${term.text}`,
+                title: "Highlight Rule"
+            }
+        );
+
+        return selected?.action;
+    }
+
+    async #applyRuleAction(
+        term: HighlightedTerm,
+        action: HighlightRuleAction,
+        terms: HighlightedTerm[]
+    ): Promise<HighlightedTerm | undefined> {
+        switch (action) {
+            case "editText":
+                return this.#editRuleText(term, terms);
+            case "changeScope":
+                return this.#changeRuleScope(term);
+            case "toggleEnabled":
+                return normalizeHighlightedTerm(
+                    { ...term, enabled: !(term.enabled ?? true) },
+                    this.#getCaseSensitiveConfig()
+                );
+            case "toggleCaseSensitive":
+                return normalizeHighlightedTerm(
+                    { ...term, caseSensitive: !term.caseSensitive },
+                    this.#getCaseSensitiveConfig()
+                );
+            case "changeMatchMode":
+                return this.#changeRuleMatchMode(term);
+            default:
+                return undefined;
+        }
+    }
+
+    async #editRuleText(term: HighlightedTerm, terms: HighlightedTerm[]): Promise<HighlightedTerm | undefined> {
+        const newText = await vscode.window.showInputBox({
+            prompt: "Edit highlight text",
+            value: term.text,
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return "Highlight text cannot be empty.";
+                }
+
+                const duplicateIndex = this.#findTermIndex(
+                    terms,
+                    value.trim(),
+                    undefined,
+                    term.id
+                );
+
+                return duplicateIndex === -1 ? null : "This highlight already exists.";
+            }
+        });
+
+        if (!newText || newText.trim() === term.text) {
+            return undefined;
+        }
+
+        return normalizeHighlightedTerm(
+            {
+                ...term,
+                text: newText.trim()
+            },
+            this.#getCaseSensitiveConfig()
+        );
+    }
+
+    async #changeRuleScope(term: HighlightedTerm): Promise<HighlightedTerm | undefined> {
+        const editor = vscode.window.activeTextEditor;
+        const scopeOptions = [
+            {
+                label: "Global",
+                detail: "Apply to every file",
+                scopeType: "global" as HighlightScopeType
+            },
+            {
+                label: "Current Workspace",
+                detail: "Only apply inside the current workspace folder",
+                scopeType: "workspace" as HighlightScopeType
+            },
+            {
+                label: "Current File",
+                detail: "Only apply to the active file",
+                scopeType: "file" as HighlightScopeType
+            },
+            {
+                label: "Current Language",
+                detail: "Only apply to the active editor language",
+                scopeType: "language" as HighlightScopeType
+            }
+        ];
+
+        const selectedScope = await vscode.window.showQuickPick(scopeOptions, {
+            placeHolder: `Current scope: ${getHighlightScopeLabel(term)}`,
+            title: "Change Highlight Scope"
+        });
+
+        if (!selectedScope) {
+            return undefined;
+        }
+
+        const scopeValue = this.#getScopeValueForSelection(selectedScope.scopeType, editor);
+        if (selectedScope.scopeType !== "global" && !scopeValue) {
+            return undefined;
+        }
+
+        return normalizeHighlightedTerm(
+            {
+                ...term,
+                scopeType: selectedScope.scopeType,
+                scopeValue
+            },
+            this.#getCaseSensitiveConfig()
+        );
+    }
+
+    #getScopeValueForSelection(
+        scopeType: HighlightScopeType,
+        editor: vscode.TextEditor | undefined
+    ): string | undefined {
+        if (scopeType === "global") {
+            return undefined;
+        }
+
+        if (!editor) {
+            vscode.window.showWarningMessage("Open an editor before changing to file, workspace, or language scope.");
+            return undefined;
+        }
+
+        switch (scopeType) {
+            case "workspace": {
+                const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+                if (!workspaceFolder) {
+                    vscode.window.showWarningMessage("The active file is not inside a workspace folder.");
+                    return undefined;
+                }
+                return workspaceFolder.uri.toString();
+            }
+            case "file":
+                return editor.document.uri.toString();
+            case "language":
+                return editor.document.languageId;
+            default:
+                return undefined;
+        }
+    }
+
+    async #changeRuleMatchMode(term: HighlightedTerm): Promise<HighlightedTerm | undefined> {
+        const options = [
+            {
+                label: "Whole Word",
+                detail: "Match full words only",
+                matchMode: "wholeWord" as HighlightMatchMode
+            },
+            {
+                label: "Substring",
+                detail: "Match any occurrence of the text",
+                matchMode: "substring" as HighlightMatchMode
+            },
+            {
+                label: "Regex",
+                detail: "Treat the highlight text as a regular expression",
+                matchMode: "regex" as HighlightMatchMode
+            }
+        ];
+
+        const selected = await vscode.window.showQuickPick(options, {
+            placeHolder: `Current mode: ${getHighlightMatchModeLabel(term)}`,
+            title: "Change Match Mode"
+        });
+
+        if (!selected || selected.matchMode === term.matchMode) {
+            return undefined;
+        }
+
+        if (selected.matchMode === "regex") {
+            try {
+                createHighlightRegex(term.text, term.caseSensitive, "regex");
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                vscode.window.showErrorMessage(`Invalid regular expression: ${message}`);
+                return undefined;
+            }
+        }
+
+        return normalizeHighlightedTerm(
+            {
+                ...term,
+                matchMode: selected.matchMode
+            },
+            this.#getCaseSensitiveConfig()
+        );
     }
 
     /**
@@ -489,7 +863,8 @@ export class HighlightManager implements vscode.Disposable {
      * 获取所有高亮词项
      */
     #getTerms(): HighlightedTerm[] {
-        return this.#context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
+        const terms = this.#context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
+        return normalizeHighlightedTerms(terms, this.#getCaseSensitiveConfig());
     }
 
     /**
@@ -525,9 +900,22 @@ export class HighlightManager implements vscode.Disposable {
     /**
      * 根据文本查找高亮词索引
      */
-    #findTermIndex(terms: HighlightedTerm[], text: string): number {
+    #findTermIndex(
+        terms: HighlightedTerm[],
+        text: string,
+        document?: vscode.TextDocument,
+        excludeId?: string
+    ): number {
         const caseSensitive = this.#getCaseSensitiveConfig();
-        return terms.findIndex((t) => EditorUtils.textEquals(t.text, text, caseSensitive));
+        return terms.findIndex((term) => {
+            if (excludeId && term.id === excludeId) {
+                return false;
+            }
+            if (document && !doesHighlightApplyToDocument(term, document)) {
+                return false;
+            }
+            return EditorUtils.textEquals(term.text, text, caseSensitive);
+        });
     }
 
     /**

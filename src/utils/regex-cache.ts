@@ -2,6 +2,8 @@
  * 默认缓存大小限制
  * 对于大型项目,可以通过配置调整此值
  */
+import type { HighlightMatchMode } from "../types";
+
 const DEFAULT_CACHE_SIZE = 100;
 
 /**
@@ -45,8 +47,8 @@ export class RegexCache {
      * @param caseSensitive 是否大小写敏感
      * @returns 唯一的缓存键字符串
      */
-    private createKey(searchText: string, caseSensitive: boolean): string {
-        return `${caseSensitive ? 's' : 'i'}:${searchText}`;
+    private createKey(searchText: string, caseSensitive: boolean, matchMode: HighlightMatchMode): string {
+        return `${caseSensitive ? 's' : 'i'}:${matchMode}:${searchText}`;
     }
 
     /**
@@ -55,8 +57,8 @@ export class RegexCache {
      * @param caseSensitive 是否大小写敏感
      * @returns 正则表达式对象,会重置 lastIndex 以便重复使用
      */
-    public getRegex(searchText: string, caseSensitive: boolean): RegExp {
-        const key = this.createKey(searchText, caseSensitive);
+    public getRegex(searchText: string, caseSensitive: boolean, matchMode: HighlightMatchMode = "wholeWord"): RegExp {
+        const key = this.createKey(searchText, caseSensitive, matchMode);
 
         let regex = this.cache.get(key);
         if (regex) {
@@ -66,7 +68,7 @@ export class RegexCache {
         }
 
         // 创建新的正则表达式
-        regex = createHighlightRegex(searchText, caseSensitive);
+        regex = createHighlightRegex(searchText, caseSensitive, matchMode);
 
         // 重置新创建的 regex 的 lastIndex
         regex.lastIndex = 0;
@@ -102,7 +104,11 @@ export class RegexCache {
  * 创建支持中英文的正则表达式
  * @throws {Error} 当 searchText 为空时抛出
  */
-export function createHighlightRegex(searchText: string, caseSensitive: boolean = false): RegExp {
+export function createHighlightRegex(
+    searchText: string,
+    caseSensitive: boolean = false,
+    matchMode: HighlightMatchMode = "wholeWord"
+): RegExp {
     // 验证输入不为空
     if (!searchText || searchText.length === 0) {
         throw new Error('Search text cannot be empty');
@@ -111,17 +117,25 @@ export function createHighlightRegex(searchText: string, caseSensitive: boolean 
     const escapedText = escapeRegex(searchText);
     const flags = caseSensitive ? 'g' : 'gi';
 
+    if (matchMode === "regex") {
+        return new RegExp(searchText, flags);
+    }
+
+    if (matchMode === "substring") {
+        return new RegExp(escapedText, flags);
+    }
+
     // 检查是否只包含英文单词字符（字母、数字、下划线）
     const isPureWord = /^[a-zA-Z0-9_]+$/.test(searchText);
 
     if (isPureWord) {
         // 对于纯英文单词，使用标准的 \b 边界（严格全字匹配）
         return new RegExp(String.raw`\b${escapedText}\b`, flags);
-    } else {
-        // 对于包含特殊字符或非英文字符的文本，直接匹配不使用边界
-        // 因为中文等语言没有空格分隔单词的概念
-        return new RegExp(escapedText, flags);
     }
+
+    // 对于包含特殊字符或非英文字符的文本，直接匹配不使用边界
+    // 因为中文等语言没有空格分隔单词的概念
+    return new RegExp(escapedText, flags);
 }
 
 /**
@@ -141,7 +155,7 @@ export function findWholeWord(text: string, searchText: string, caseSensitive: b
     }
 
     try {
-        const regex = RegexCache.getInstance().getRegex(searchText, caseSensitive);
+        const regex = RegexCache.getInstance().getRegex(searchText, caseSensitive, "wholeWord");
         const match = regex.exec(text);
         return match ? match.index : -1;
     } catch (error) {

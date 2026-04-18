@@ -17,6 +17,8 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Custom Color Support**: Use any hex color code for personalized highlighting.
 - **Color Selection UI**: Easy-to-use color picker for both built-in and custom colors.
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
+- **Rule Scope Control**: Limit highlights to the current workspace, file, or language.
+- **Per-Rule Settings**: Toggle enable state, case sensitivity, and match mode for each highlight rule.
 - **Cross-Session Persistence**: Highlights persist across VS Code sessions.
 - **Case Sensitive Matching**: Optional case-sensitive search for highlights.
 - **Large File Optimization**: Intelligent performance optimization for large files.
@@ -35,7 +37,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - `Persistent Highlighter: Clear All Highlights`: Removes all highlights from all files.
 - `Persistent Highlighter: Refresh`: Refresh the highlights tree view.
 - `Persistent Highlighter: Jump to Highlight`: Navigate to a specific highlight in the current file.
-- `Persistent Highlighter: Edit Highlight`: Modify the text of an existing highlight.
+- `Persistent Highlighter: Edit Highlight Rule`: Modify the text, scope, enabled state, case sensitivity, or match mode of an existing highlight.
 
 ## Installation
 
@@ -89,9 +91,22 @@ You can now access highlighting operations directly from the editor's right-clic
 3. Use the tree view to:
    - See all highlighted terms across all files
    - Jump to specific highlights
-   - Edit highlight text
+   - Edit highlight rules
    - Remove individual highlights
    - Clear all highlights at once
+
+### Rule Editing
+
+Use `Persistent Highlighter: Edit Highlight Rule` from the Command Palette, or click the edit action in the Highlights view, to configure an existing rule:
+
+1. Select a stored highlight rule.
+2. Choose the setting you want to update.
+3. Apply one of the supported changes:
+   - Edit the stored text
+   - Switch scope between Global, Current Workspace, Current File, and Current Language
+   - Enable or disable the rule without deleting it
+   - Toggle case-sensitive matching
+   - Change match mode between Whole Word, Substring, and Regex
 
 ## Configuration
 
