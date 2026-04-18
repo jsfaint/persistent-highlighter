@@ -127,6 +127,41 @@ suite('Extension 核心功能测试', () => {
         assert.ok(manager);
     });
 
+    test('HighlightManager: regex 规则编辑文本时应拦截非法正则', async () => {
+        const regexRule: HighlightedTerm = {
+            id: 'highlight:regex',
+            text: 'test',
+            colorId: 0,
+            enabled: true,
+            caseSensitive: false,
+            matchMode: 'regex',
+            scopeType: 'global'
+        };
+        let storedTerms: HighlightedTerm[] = [regexRule];
+        let updateCalled = false;
+        let errorMessage = '';
+
+        (mockContext.globalState as any).get = () => storedTerms;
+        (mockContext.globalState as any).update = (_key: string, value: HighlightedTerm[]) => {
+            updateCalled = true;
+            storedTerms = value;
+            return Promise.resolve();
+        };
+        (vscode.window as any).showQuickPick = () => Promise.resolve({ action: 'editText' });
+        (vscode.window as any).showInputBox = () => Promise.resolve('(');
+        (vscode.window as any).showErrorMessage = (message: string) => {
+            errorMessage = message;
+            return Promise.resolve('');
+        };
+
+        const manager = new HighlightManager(mockContext);
+        await manager.editHighlightRule(regexRule.id);
+
+        assert.strictEqual(updateCalled, false);
+        assert.strictEqual(storedTerms[0].text, 'test');
+        assert.ok(errorMessage.includes('Invalid regular expression'));
+    });
+
     test('createHighlightRegex: 词边界测试 - 完整匹配', () => {
         const text = 'test testing';
         const regex = createHighlightRegex('test', false);

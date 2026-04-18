@@ -647,23 +647,16 @@ export class HighlightManager implements vscode.Disposable {
         const newText = await vscode.window.showInputBox({
             prompt: "Edit highlight text",
             value: term.text,
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return "Highlight text cannot be empty.";
-                }
-
-                const duplicateIndex = this.#findTermIndex(
-                    terms,
-                    value.trim(),
-                    undefined,
-                    term.id
-                );
-
-                return duplicateIndex === -1 ? null : "This highlight already exists.";
-            }
+            validateInput: (value) => this.#validateEditedRuleText(value, term, terms)
         });
 
         if (!newText || newText.trim() === term.text) {
+            return undefined;
+        }
+
+        const validationMessage = this.#validateEditedRuleText(newText, term, terms);
+        if (validationMessage) {
+            vscode.window.showErrorMessage(validationMessage);
             return undefined;
         }
 
@@ -674,6 +667,38 @@ export class HighlightManager implements vscode.Disposable {
             },
             this.#getCaseSensitiveConfig()
         );
+    }
+
+    #validateEditedRuleText(
+        value: string,
+        term: HighlightedTerm,
+        terms: HighlightedTerm[]
+    ): string | null {
+        const trimmedValue = value.trim();
+        if (trimmedValue.length === 0) {
+            return "Highlight text cannot be empty.";
+        }
+
+        const duplicateIndex = this.#findTermIndex(
+            terms,
+            trimmedValue,
+            undefined,
+            term.id
+        );
+        if (duplicateIndex !== -1) {
+            return "This highlight already exists.";
+        }
+
+        if (term.matchMode === "regex") {
+            try {
+                createHighlightRegex(trimmedValue, term.caseSensitive, "regex");
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                return `Invalid regular expression: ${message}`;
+            }
+        }
+
+        return null;
     }
 
     async #changeRuleScope(term: HighlightedTerm): Promise<HighlightedTerm | undefined> {
