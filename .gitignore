@@ -26,4 +26,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-.tickets/
+# AI
+.agents/
+.codex/
+.trellis/
+AGENTS.md

@@ -41,7 +41,7 @@ Thumbs.db
 .mocharc.json
 tsconfig.test.json
 
-.tickets/
 .trellis/
-.iflow/
+.codex/
+.agents/
 AGENTS.md
