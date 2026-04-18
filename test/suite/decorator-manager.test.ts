@@ -26,11 +26,13 @@ class MockDecorationType {
 
 suite("DecoratorManager Suite", () => {
     let decoratorManager: DecoratorManager;
-    let mockEditor: any;
+    let mockEditor: MockTextEditor;
+    let textEditor: vscode.TextEditor;
 
     setup(() => {
         decoratorManager = new DecoratorManager();
         mockEditor = new MockTextEditor();
+        textEditor = mockEditor as unknown as vscode.TextEditor;
     });
 
     teardown(() => {
@@ -59,11 +61,11 @@ suite("DecoratorManager Suite", () => {
             }
         ];
 
-        decoratorManager["applyHighlightsToEditor"](mockEditor, highlights);
+        decoratorManager["applyHighlightsToEditor"](textEditor, highlights);
 
         assert.ok(mockEditor.decorations.size > 0, "应该应用装饰器");
 
-        decoratorManager["clearAllEditorDecorations"](mockEditor);
+        decoratorManager["clearAllEditorDecorations"](textEditor);
 
         assert.strictEqual(mockEditor.decorations.size, 0, "所有装饰器应该被清除");
     });
@@ -78,7 +80,7 @@ suite("DecoratorManager Suite", () => {
             }
         ];
 
-        decoratorManager["applyHighlightsToEditor"](mockEditor, highlights);
+        decoratorManager["applyHighlightsToEditor"](textEditor, highlights);
 
         // 验证装饰器被应用
         assert.ok(mockEditor.decorations.size > 0, "应该应用装饰器");
@@ -100,7 +102,7 @@ suite("DecoratorManager Suite", () => {
             }
         ];
 
-        decoratorManager["applyHighlightsToEditor"](mockEditor, highlights);
+        decoratorManager["applyHighlightsToEditor"](textEditor, highlights);
 
         // 验证装饰器被应用
         assert.ok(mockEditor.decorations.size > 0, "应该应用自定义颜色装饰器");

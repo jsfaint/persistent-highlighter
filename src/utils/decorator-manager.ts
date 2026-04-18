@@ -63,10 +63,12 @@ export class DecoratorManager {
             if (highlight.isCustomColor && highlight.customColor) {
                 const colorKey = this.getCustomColorKey(highlight.text, highlight.customColor);
                 if (colorKey) {
-                    if (!customHighlights.has(colorKey)) {
-                        customHighlights.set(colorKey, { ranges: [], highlight });
+                    let customHighlightEntry = customHighlights.get(colorKey);
+                    if (!customHighlightEntry) {
+                        customHighlightEntry = { ranges: [], highlight };
+                        customHighlights.set(colorKey, customHighlightEntry);
                     }
-                    customHighlights.get(colorKey)!.ranges.push(...highlight.ranges);
+                    customHighlightEntry.ranges.push(...highlight.ranges);
                 }
             } else {
                 const colorDecorations = colorHighlights.get(highlight.colorId);

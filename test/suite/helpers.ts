@@ -1,21 +1,82 @@
 import * as vscode from 'vscode';
 import { HighlightedTerm } from '../../src/types';
 
+export type MockMemento = vscode.Memento & {
+    get<T>(key: string, defaultValue?: T): T;
+    update(key: string, value: unknown): Promise<void>;
+    keys(): readonly string[];
+};
+
+export interface MockSecretStorage extends vscode.SecretStorage {
+    delete(key: string): Thenable<void>;
+    get(key: string): Thenable<string | undefined>;
+    onDidChange: vscode.Event<vscode.SecretStorageChangeEvent>;
+    store(key: string, value: string): Thenable<void>;
+}
+
+export type MockExtensionContext = vscode.ExtensionContext & {
+    globalState: MockMemento;
+    workspaceState: MockMemento;
+    secrets: MockSecretStorage;
+};
+
+export interface MockVSCodeWindow {
+    activeTextEditor: vscode.TextEditor | undefined;
+    visibleTextEditors: vscode.TextEditor[];
+    createTextEditorDecorationType: typeof vscode.window.createTextEditorDecorationType;
+    showInformationMessage: typeof vscode.window.showInformationMessage;
+    showWarningMessage: typeof vscode.window.showWarningMessage;
+    showErrorMessage: typeof vscode.window.showErrorMessage;
+    showQuickPick: typeof vscode.window.showQuickPick;
+    showInputBox: typeof vscode.window.showInputBox;
+    onDidChangeActiveTextEditor: typeof vscode.window.onDidChangeActiveTextEditor;
+}
+
+export interface MockVSCodeWorkspace {
+    getConfiguration: typeof vscode.workspace.getConfiguration;
+    getWorkspaceFolder: typeof vscode.workspace.getWorkspaceFolder;
+    onDidChangeTextDocument: typeof vscode.workspace.onDidChangeTextDocument;
+    onDidCloseTextDocument: typeof vscode.workspace.onDidCloseTextDocument;
+    onDidChangeConfiguration: typeof vscode.workspace.onDidChangeConfiguration;
+}
+
+function createMockMemento(): MockMemento {
+    return {
+        get: <T>(_: string, defaultValue?: T): T => defaultValue as T,
+        update: async () => {},
+        keys: () => []
+    } as MockMemento;
+}
+
+function createMockSecrets(): MockSecretStorage {
+    return {
+        delete: async () => {},
+        get: async () => undefined,
+        onDidChange: () => ({ dispose: () => {} }),
+        store: async () => {}
+    };
+}
+
+type MutableVSCodeBindings = {
+    window: MockVSCodeWindow;
+    workspace: MockVSCodeWorkspace;
+};
+
+export function getMockVSCodeWindow(): MockVSCodeWindow {
+    return (vscode as unknown as MutableVSCodeBindings).window;
+}
+
+export function getMockVSCodeWorkspace(): MockVSCodeWorkspace {
+    return (vscode as unknown as MutableVSCodeBindings).workspace;
+}
+
 /**
  * 创建模拟的 ExtensionContext
  */
-export function createMockContext(): vscode.ExtensionContext {
-    const mockContext: any = {
-        globalState: {
-            get: (key: string, defaultValue?: any) => defaultValue || [],
-            update: (key: string, value: any) => Promise.resolve(),
-            keys: []
-        },
-        workspaceState: {
-            get: () => {},
-            update: () => Promise.resolve(),
-            keys: []
-        },
+export function createMockContext(): MockExtensionContext {
+    const mockContext = {
+        globalState: createMockMemento(),
+        workspaceState: createMockMemento(),
         subscriptions: [],
         extensionPath: '/mock/extension/path',
         storagePath: '/mock/storage/path',
@@ -23,28 +84,23 @@ export function createMockContext(): vscode.ExtensionContext {
         asAbsolutePath: (path: string) => path,
         extensionUri: vscode.Uri.parse('file:///mock/extension/path'),
         logPath: '/mock/log/path',
-        languageModelAccessInformation: {} as any,
-        secrets: {} as any
+        languageModelAccessInformation: {} as unknown as vscode.LanguageModelAccessInformation,
+        secrets: createMockSecrets()
     };
-    return mockContext as vscode.ExtensionContext;
+    return mockContext as unknown as MockExtensionContext;
 }
 
 /**
  * 创建模拟的 TextDocument
  */
 export function createMockDocument(content: string, uri?: string): vscode.TextDocument {
-    const mockDocument: any = {
+    const resolvedUri = vscode.Uri.parse(uri || 'file:///mock/document.txt');
+    const mockDocument = {
         getText: () => content,
         languageId: 'typescript',
-        get uri(): vscode.Uri {
-            return vscode.Uri.parse(uri || 'file:///mock/document.txt');
-        },
-        get fileName(): string {
-            return uri || 'mock-document.txt';
-        },
-        get lineCount(): number {
-            return content.split('\n').length;
-        },
+        uri: resolvedUri,
+        fileName: uri || 'mock-document.txt',
+        lineCount: content.split('\n').length,
         positionAt: (offset: number) => {
             const text = content.substring(0, offset);
             const lines = text.split('\n');
@@ -64,14 +120,14 @@ export function createMockDocument(content: string, uri?: string): vscode.TextDo
         lineAt: () => ({} as vscode.TextLine),
         save: () => Promise.resolve(true)
     };
-    return mockDocument as vscode.TextDocument;
+    return mockDocument as unknown as vscode.TextDocument;
 }
 
 /**
  * 创建模拟的 TextEditor
  */
 export function createMockEditor(document: vscode.TextDocument): vscode.TextEditor {
-    const mockEditor: any = {
+    const mockEditor = {
         document: document,
         selection: new vscode.Selection(
             new vscode.Position(0, 0),
@@ -79,7 +135,7 @@ export function createMockEditor(document: vscode.TextDocument): vscode.TextEdit
         ),
         selections: [],
         edit: (callback: (editBuilder: vscode.TextEditorEdit) => void) => {
-            const editBuilder: any = {};
+            const editBuilder = {} as unknown as vscode.TextEditorEdit;
             callback(editBuilder);
             return Promise.resolve(true);
         },
@@ -87,7 +143,7 @@ export function createMockEditor(document: vscode.TextDocument): vscode.TextEdit
         revealRange: () => {},
         show: () => {}
     };
-    return mockEditor as vscode.TextEditor;
+    return mockEditor as unknown as vscode.TextEditor;
 }
 
 /**
@@ -115,10 +171,10 @@ export function createMockTerms(): HighlightedTerm[] {
  * 创建模拟的 WorkspaceConfiguration
  */
 export function createMockConfiguration(caseSensitive: boolean = false): vscode.WorkspaceConfiguration {
-    const mockConfig: any = {
-        get: (section: string, defaultValue?: any) => {
+    const mockConfig = {
+        get: <T>(section: string, defaultValue?: T) => {
             if (section === 'persistent-highlighter.caseSensitive' || section === 'caseSensitive') {
-                return caseSensitive;
+                return caseSensitive as T;
             }
             return defaultValue;
         },
@@ -126,7 +182,7 @@ export function createMockConfiguration(caseSensitive: boolean = false): vscode.
         update: () => Promise.resolve(),
         inspect: () => undefined
     };
-    return mockConfig as vscode.WorkspaceConfiguration;
+    return mockConfig as unknown as vscode.WorkspaceConfiguration;
 }
 
 /**
@@ -134,26 +190,34 @@ export function createMockConfiguration(caseSensitive: boolean = false): vscode.
  */
 export function setupVSCodeMocks() {
     // Mock vscode.window - 避免使用展开运算符访问需要 API proposal 的属性
-    (vscode as any).window = {
+    const mockWindow: MockVSCodeWindow = {
         activeTextEditor: undefined,
         visibleTextEditors: [],
         createTextEditorDecorationType: () => ({} as vscode.TextEditorDecorationType),
-        showInformationMessage: () => Promise.resolve(''),
-        showWarningMessage: () => Promise.resolve(''),
-        showErrorMessage: () => Promise.resolve(''),
-        showQuickPick: () => Promise.resolve(undefined),
-        showInputBox: () => Promise.resolve(undefined),
+        showInformationMessage: (async () => '') as MockVSCodeWindow['showInformationMessage'],
+        showWarningMessage: (async () => '') as MockVSCodeWindow['showWarningMessage'],
+        showErrorMessage: (async () => '') as MockVSCodeWindow['showErrorMessage'],
+        showQuickPick: (async () => undefined) as MockVSCodeWindow['showQuickPick'],
+        showInputBox: (async () => undefined) as MockVSCodeWindow['showInputBox'],
         onDidChangeActiveTextEditor: () => ({ dispose: () => {} })
     };
 
     // Mock vscode.workspace
-    (vscode as any).workspace = {
+    const mockWorkspace: MockVSCodeWorkspace = {
         getConfiguration: () => createMockConfiguration(),
-        getWorkspaceFolder: (uri: vscode.Uri) => ({ uri: vscode.Uri.parse('file:///mock') }),
+        getWorkspaceFolder: () => ({
+            uri: vscode.Uri.parse('file:///mock'),
+            name: 'mock',
+            index: 0
+        }),
         onDidChangeTextDocument: () => ({ dispose: () => {} }),
         onDidCloseTextDocument: () => ({ dispose: () => {} }),
         onDidChangeConfiguration: () => ({ dispose: () => {} })
     };
+
+    const mutableVscode = vscode as unknown as MutableVSCodeBindings;
+    mutableVscode.window = mockWindow;
+    mutableVscode.workspace = mockWorkspace;
 }
 
 /**

@@ -13,12 +13,17 @@ import {
     createMockTerms,
     createMockConfiguration,
     createMockRange,
+    getMockVSCodeWindow,
+    getMockVSCodeWorkspace,
     setupVSCodeMocks
 } from './helpers';
 import { HighlightedTerm } from '../../src/types';
+import type { MockExtensionContext } from './helpers';
+
+type EditableTextEditor = vscode.TextEditor & { document?: vscode.TextDocument };
 
 suite('Extension 核心功能测试', () => {
-    let mockContext: vscode.ExtensionContext;
+    let mockContext: MockExtensionContext;
     let mockDocument: vscode.TextDocument;
     let mockEditor: vscode.TextEditor;
 
@@ -119,7 +124,7 @@ suite('Extension 核心功能测试', () => {
 
     test('HighlightManager: 获取配置', () => {
         // Mock getConfiguration
-        (vscode.workspace as any).getConfiguration = () => {
+        getMockVSCodeWorkspace().getConfiguration = () => {
             return createMockConfiguration(true);
         };
 
@@ -140,19 +145,19 @@ suite('Extension 核心功能测试', () => {
         let storedTerms: HighlightedTerm[] = [regexRule];
         let updateCalled = false;
         let errorMessage = '';
+        const mockWindow = getMockVSCodeWindow();
 
-        (mockContext.globalState as any).get = () => storedTerms;
-        (mockContext.globalState as any).update = (_key: string, value: HighlightedTerm[]) => {
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
             updateCalled = true;
-            storedTerms = value;
-            return Promise.resolve();
+            storedTerms = value as HighlightedTerm[];
         };
-        (vscode.window as any).showQuickPick = () => Promise.resolve({ action: 'editText' });
-        (vscode.window as any).showInputBox = () => Promise.resolve('(');
-        (vscode.window as any).showErrorMessage = (message: string) => {
+        mockWindow.showQuickPick = (async () => ({ action: 'editText' })) as unknown as typeof mockWindow.showQuickPick;
+        mockWindow.showInputBox = (async () => '(') as typeof mockWindow.showInputBox;
+        mockWindow.showErrorMessage = (async (message: string) => {
             errorMessage = message;
-            return Promise.resolve('');
-        };
+            return '';
+        }) as typeof mockWindow.showErrorMessage;
 
         const manager = new HighlightManager(mockContext);
         await manager.editHighlightRule(regexRule.id);
@@ -167,7 +172,7 @@ suite('Extension 核心功能测试', () => {
         const regex = createHighlightRegex('test', false);
         const matches = text.match(regex);
         assert.ok(matches);
-        assert.strictEqual(matches![0], 'test');
+        assert.strictEqual(matches[0], 'test');
     });
 
     test('createHighlightRegex: 特殊字符转义', () => {
@@ -221,7 +226,7 @@ suite('Extension 核心功能测试', () => {
             { text: 'test', colorId: 0 },
             { text: 'highlight', colorId: 1 }
         ];
-        (mockContext.globalState as any).get = () => testTerms;
+        mockContext.globalState.get = <T>() => testTerms as unknown as T;
 
         // Dispose 应该清理缓存
         manager.dispose();
@@ -233,16 +238,11 @@ suite('Extension 核心功能测试', () => {
         const manager = new HighlightManager(mockContext);
 
         // 模拟一个有 version 属性的文档
-        const mockDocWithVersion: any = {
+        const mockDocWithVersion = {
             ...mockDocument,
             version: 1,
             getText: () => 'test document with test content'
-        };
-
-        const mockEditorWithVersion: any = {
-            ...mockEditor,
-            document: mockDocWithVersion
-        };
+        } as vscode.TextDocument & { version: number };
 
         // 在更新过程中改变文档版本
         let updateCallCount = 0;
@@ -302,12 +302,12 @@ suite('Extension 核心功能测试', () => {
 
     test('HighlightManager: validateActiveEditor 缺少文档时返回 null', () => {
         // 模拟一个没有 document 的编辑器
-        const mockEditorWithoutDoc: any = {
+        const mockEditorWithoutDoc = {
             ...mockEditor,
             document: undefined
-        };
+        } as unknown as EditableTextEditor;
 
-        (vscode.window as any).activeTextEditor = mockEditorWithoutDoc;
+        getMockVSCodeWindow().activeTextEditor = mockEditorWithoutDoc;
 
         // EditorUtils.validateActiveEditor 应该返回 null
         const result = EditorUtils.validateActiveEditor();
@@ -315,7 +315,7 @@ suite('Extension 核心功能测试', () => {
     });
 
     test('HighlightManager: validateActiveEditor 正常情况返回编辑器', () => {
-        (vscode.window as any).activeTextEditor = mockEditor;
+        getMockVSCodeWindow().activeTextEditor = mockEditor;
 
         // EditorUtils.validateActiveEditor 应该返回编辑器
         const result = EditorUtils.validateActiveEditor();
@@ -323,7 +323,7 @@ suite('Extension 核心功能测试', () => {
     });
 
     test('HighlightManager: validateActiveEditor 没有编辑器时返回 null', () => {
-        (vscode.window as any).activeTextEditor = undefined;
+        getMockVSCodeWindow().activeTextEditor = undefined;
 
         // EditorUtils.validateActiveEditor 应该返回 null
         const result = EditorUtils.validateActiveEditor();

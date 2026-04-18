@@ -5,11 +5,14 @@ import {
     createMockContext,
     createMockDocument,
     createMockEditor,
+    getMockVSCodeWindow,
     setupVSCodeMocks
 } from './helpers';
+import type { HighlightedTerm } from '../../src/types';
+import type { MockExtensionContext } from './helpers';
 
 suite('HighlightsTreeProvider 测试', () => {
-    let mockContext: vscode.ExtensionContext;
+    let mockContext: MockExtensionContext;
     let treeProvider: HighlightsTreeProvider;
     let mockDocument: vscode.TextDocument;
     let mockEditor: vscode.TextEditor;
@@ -22,22 +25,21 @@ suite('HighlightsTreeProvider 测试', () => {
         mockContext = createMockContext();
 
         // 设置初始测试数据到 globalState
-        let testTerms = [
+        let testTerms: HighlightedTerm[] = [
             { id: 'highlight:test', text: 'test', colorId: 0, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' },
             { id: 'highlight:highlight', text: 'highlight', colorId: 1, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' },
             { id: 'highlight:code', text: 'code', colorId: 2, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' }
         ];
-        (mockContext.globalState as any).get = (key: string) => {
+        mockContext.globalState.get = <T>(key: string, defaultValue?: T) => {
             if (key === 'persistentHighlighterTerms') {
-                return testTerms;
+                return testTerms as unknown as T;
             }
-            return [];
+            return defaultValue as T;
         };
-        (mockContext.globalState as any).update = (key: string, value: any) => {
+        mockContext.globalState.update = async (key: string, value: unknown) => {
             if (key === 'persistentHighlighterTerms') {
-                testTerms = value;
+                testTerms = value as HighlightedTerm[];
             }
-            return Promise.resolve();
         };
 
         // 创建 mock 编辑器
@@ -47,7 +49,7 @@ suite('HighlightsTreeProvider 测试', () => {
         mockEditor = createMockEditor(mockDocument);
 
         // 设置 activeTextEditor
-        (vscode.window as any).activeTextEditor = mockEditor;
+        getMockVSCodeWindow().activeTextEditor = mockEditor;
 
         // 创建 TreeProvider
         treeProvider = new HighlightsTreeProvider(mockContext);
@@ -194,7 +196,7 @@ suite('HighlightsTreeProvider 测试', () => {
 
     test('HighlightsTreeProvider: 无编辑器时获取子元素', async () => {
         // 设置无编辑器状态
-        (vscode.window as any).activeTextEditor = undefined;
+        getMockVSCodeWindow().activeTextEditor = undefined;
 
         const newProvider = new HighlightsTreeProvider(mockContext);
         const children = await newProvider.getChildren();

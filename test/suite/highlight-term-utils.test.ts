@@ -5,6 +5,7 @@ import {
     normalizeHighlightedTerm,
     normalizeHighlightedTerms
 } from "../../src/utils/highlight-term-utils";
+import type { HighlightedTerm } from "../../src/types";
 import { createMockDocument, setupVSCodeMocks } from "./helpers";
 
 suite("highlight-term-utils 测试", () => {
@@ -31,18 +32,20 @@ suite("highlight-term-utils 测试", () => {
     });
 
     test("normalizeHighlightedTerms: 无效字段回退到默认值", () => {
+        const invalidTerms = [
+            {
+                text: "demo",
+                colorId: 1,
+                enabled: false,
+                caseSensitive: true,
+                matchMode: "invalid",
+                scopeType: "bad",
+                scopeValue: "ignored"
+            }
+        ] as unknown as HighlightedTerm[];
+
         const normalized = normalizeHighlightedTerms(
-            [
-                {
-                    text: "demo",
-                    colorId: 1,
-                    enabled: false,
-                    caseSensitive: true,
-                    matchMode: "invalid" as any,
-                    scopeType: "bad" as any,
-                    scopeValue: "ignored"
-                }
-            ],
+            invalidTerms,
             false
         );
 
