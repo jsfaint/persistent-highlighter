@@ -59,23 +59,13 @@ function getCommandConfig(highlightManager: HighlightManager, treeProvider: High
             command: "persistent-highlighter.removeHighlightFromTree",
             callback: (item: unknown) => {
                 const hi = item as HighlightItem;
-                treeProvider.removeHighlight(hi.text);
-                highlightManager.refreshHighlights();
+                highlightManager.removeHighlightById(hi.ruleId);
             }
         },
         {
             command: "persistent-highlighter.editHighlight",
-            callback: async (item: unknown) => {
-                const hi = item as HighlightItem;
-                const newText = await vscode.window.showInputBox({
-                    prompt: 'Edit highlight text',
-                    value: hi.text
-                });
-                if (newText && newText !== hi.text) {
-                    treeProvider.editHighlight(hi.text, newText);
-                    highlightManager.refreshHighlights();
-                }
-            }
+            callback: async (item: unknown) =>
+                highlightManager.editHighlightRule((item as HighlightItem | undefined)?.ruleId)
         }
     ];
 }

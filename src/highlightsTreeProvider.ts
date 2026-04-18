@@ -1,12 +1,23 @@
 import * as vscode from 'vscode';
+import { GLOBAL_STATE_KEY } from './constants';
 import { EditorUtils } from './utils/editor-utils';
 import type { HighlightedTerm } from './types';
+import {
+    doesHighlightApplyToDocument,
+    getHighlightMatchModeLabel,
+    getHighlightScopeLabel,
+    normalizeHighlightedTerms
+} from './utils/highlight-term-utils';
 
 export class HighlightItem extends vscode.TreeItem {
     constructor(
+        public readonly ruleId: string,
         public readonly text: string,
         public readonly colorId: number,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+        public readonly isEnabled: boolean,
+        public readonly scopeLabel: string,
+        public readonly matchModeLabel: string,
         public readonly isCustomColor?: boolean,
         public readonly customColor?: {
             light: { backgroundColor: string };
@@ -16,7 +27,9 @@ export class HighlightItem extends vscode.TreeItem {
     ) {
         super(text, collapsibleState);
 
-        this.description = isCustomColor ? `Custom Color` : `Color ${colorId + 1}`;
+        const colorLabel = isCustomColor ? 'Custom Color' : `Color ${colorId + 1}`;
+        const statusLabel = isEnabled ? undefined : 'Disabled';
+        this.description = [statusLabel, scopeLabel, matchModeLabel, colorLabel].filter(Boolean).join(' · ');
         this.iconPath = new vscode.ThemeIcon('symbol-color');
         this.contextValue = 'highlightItem';
 
@@ -94,9 +107,13 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
 
     private createHighlightItem(term: HighlightedTerm): HighlightItem {
         return new HighlightItem(
+            term.id ?? term.text,
             term.text,
             term.colorId,
             vscode.TreeItemCollapsibleState.None,
+            term.enabled ?? true,
+            getHighlightScopeLabel(term),
+            getHighlightMatchModeLabel(term),
             term.isCustomColor,
             term.customColor,
             true
@@ -105,14 +122,18 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
 
     private getActiveTermsForCurrentFile(): HighlightedTerm[] {
         const terms = this.getTerms();
-        if (!this.currentEditor) {
+        const currentEditor = this.currentEditor;
+        if (!currentEditor) {
             return [];
         }
 
-        const fileContent = this.currentEditor.document.getText();
+        const fileContent = currentEditor.document.getText();
         const caseSensitive = this.getCaseSensitiveConfig();
 
-        return terms.filter(term => EditorUtils.isTermInFile(term, fileContent, caseSensitive));
+        return terms.filter((term) =>
+            doesHighlightApplyToDocument(term, currentEditor.document) &&
+            EditorUtils.isTermInFile(term, fileContent, caseSensitive)
+        );
     }
 
     private getCaseSensitiveConfig(): boolean {
@@ -120,15 +141,16 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     }
 
     private getTerms(): HighlightedTerm[] {
-        return this.context.globalState.get('persistentHighlighterTerms', []);
+        const terms = this.context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
+        return normalizeHighlightedTerms(terms, this.getCaseSensitiveConfig());
     }
 
-    removeHighlight(text: string): void {
+    removeHighlight(identifier: string): void {
         const terms = this.getTerms();
-        const termIndex = terms.findIndex(t => t.text === text);
+        const termIndex = terms.findIndex((t) => t.id === identifier || t.text === identifier);
         if (termIndex !== -1) {
             terms.splice(termIndex, 1);
-            this.context.globalState.update('persistentHighlighterTerms', terms);
+            this.context.globalState.update(GLOBAL_STATE_KEY, terms);
             this.refresh();
         }
     }
@@ -138,13 +160,13 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         const termIndex = terms.findIndex(t => t.text === oldText);
         if (termIndex !== -1) {
             terms[termIndex].text = newText;
-            this.context.globalState.update('persistentHighlighterTerms', terms);
+            this.context.globalState.update(GLOBAL_STATE_KEY, terms);
             this.refresh();
         }
     }
 
     clearAllHighlights(): void {
-        this.context.globalState.update('persistentHighlighterTerms', []);
+        this.context.globalState.update(GLOBAL_STATE_KEY, []);
         this.refresh();
     }
 

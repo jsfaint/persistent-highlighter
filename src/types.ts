@@ -20,11 +20,27 @@ export type HighlightColor = ColorDefinition;
 export type ColorPoolEntry = ColorDefinition;
 
 /**
+ * 高亮匹配模式
+ */
+export type HighlightMatchMode = "wholeWord" | "substring" | "regex";
+
+/**
+ * 高亮作用域类型
+ */
+export type HighlightScopeType = "global" | "workspace" | "file" | "language";
+
+/**
  * 高亮词项接口 - 存储在 globalState 中的数据结构
  */
 export interface HighlightedTerm {
+    id?: string;
     text: string;
     colorId: number;
+    enabled?: boolean;
+    caseSensitive?: boolean;
+    matchMode?: HighlightMatchMode;
+    scopeType?: HighlightScopeType;
+    scopeValue?: string;
     isCustomColor?: boolean;
     customColor?: HighlightColor;
 }
