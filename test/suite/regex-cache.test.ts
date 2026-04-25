@@ -130,6 +130,24 @@ suite("createHighlightRegex Suite", () => {
 
         assert.ok(regex.test(text), "应该匹配包含下划线的标识符");
     });
+
+    test("should match partial selections containing underscores", () => {
+        const text = "hello_world";
+
+        for (const searchText of ["hello_", "hello_w", "hello_wo"]) {
+            const regex = createHighlightRegex(searchText, false);
+
+            assert.ok(regex.test(text), `should match ${searchText}`);
+        }
+    });
+
+    test("should treat underscores as boundaries for alphanumeric words", () => {
+        const helloRegex = createHighlightRegex("hello", false);
+        const worldRegex = createHighlightRegex("world", false);
+
+        assert.ok(helloRegex.test("hello_world"), "should match before underscore");
+        assert.ok(worldRegex.test("hello_world"), "should match after underscore");
+    });
 });
 
 suite("findWholeWord Suite", () => {

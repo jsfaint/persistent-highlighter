@@ -5,6 +5,7 @@
 import type { HighlightMatchMode } from "../types";
 
 const DEFAULT_CACHE_SIZE = 100;
+const ASCII_ALPHANUMERIC_BOUNDARY = String.raw`[A-Za-z0-9]`;
 
 /**
  * 正则表达式缓存管理器
@@ -125,12 +126,13 @@ export function createHighlightRegex(
         return new RegExp(escapedText, flags);
     }
 
-    // 检查是否只包含英文单词字符（字母、数字、下划线）
-    const isPureWord = /^[a-zA-Z0-9_]+$/.test(searchText);
+    const isPureAlphanumeric = /^[a-zA-Z0-9]+$/.test(searchText);
 
-    if (isPureWord) {
-        // 对于纯英文单词，使用标准的 \b 边界（严格全字匹配）
-        return new RegExp(String.raw`\b${escapedText}\b`, flags);
+    if (isPureAlphanumeric) {
+        return new RegExp(
+            String.raw`(?<!${ASCII_ALPHANUMERIC_BOUNDARY})${escapedText}(?!${ASCII_ALPHANUMERIC_BOUNDARY})`,
+            flags
+        );
     }
 
     // 对于包含特殊字符或非英文字符的文本，直接匹配不使用边界
