@@ -10,7 +10,8 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 
 - **Multi-Language Support**: Now supports Chinese, Japanese, Korean, and other non-English text highlighting
 - **Persistent Highlighting**: Highlights are saved and will reappear when you reopen the file.
-- **Smart Word Boundary Detection**: Automatic language detection with appropriate boundary matching for accurate highlighting.
+- **Smart Word Boundary Detection**: Automatic language detection with appropriate boundary matching, including underscore-separated identifiers like `hello_world`.
+- **Partial Symbol Selection Matching**: Highlight partial selections that include underscores or punctuation, such as `hello_` or `hello_w`.
 - **Multiple Colors**: Use a variety of colors to highlight different terms.
 - **25 Built-in Colors**: Choose from 25 carefully selected built-in colors.
 - **18 Preset Colors**: Quick access to 18 curated preset colors in the custom color picker.
@@ -150,6 +151,15 @@ The extension offers 18 carefully selected preset colors:
 - **Rose** (#F5B7B1)
 
 ## Recent Updates
+
+### Version 0.2.1
+
+- **Underscore Selection Fix**:
+  - Partial selections containing underscores, such as `hello_`, `hello_w`, and `hello_wo`, now highlight correctly inside identifiers like `hello_world`
+  - Alphanumeric word matching treats underscores as boundaries, so `hello` and `world` still match inside `hello_world`
+- **Testing**:
+  - Added regression coverage for underscore boundary matching
+  - Test suite now passes with **75 tests**
 
 ### Version 0.2.0
 
@@ -356,7 +366,7 @@ The extension uses a comprehensive architecture with:
 - `EditorUtils` class: Provides shared utility functions for editor operations, including regex matching with safety checks
 - `RegexCache` class: Singleton pattern for caching regex expressions with FIFO eviction policy and lastIndex reset
 - `ColorUtils` class: Handles color conversion and validation operations
-- Unit Testing: Comprehensive test suite using Mocha framework with VS Code Test Electron (68 tests, all passing)
+- Unit Testing: Comprehensive test suite using Mocha framework with VS Code Test Electron (75 tests, all passing)
 - VS Code API integration: Uses `TextEditorDecorationType` for rendering highlights
 - State persistence: Uses `globalState` to store highlights across sessions
 - Event-driven updates: Listens to document changes, active editor changes, and configuration changes
