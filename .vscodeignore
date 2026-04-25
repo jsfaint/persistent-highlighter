@@ -43,5 +43,6 @@ tsconfig.test.json
 
 .trellis/
 .codex/
+.opencode/
 .agents/
 AGENTS.md

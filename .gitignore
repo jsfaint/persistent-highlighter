@@ -29,5 +29,6 @@ Thumbs.db
 # AI
 .agents/
 .codex/
+.opencode/
 .trellis/
 AGENTS.md
