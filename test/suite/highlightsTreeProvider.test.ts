@@ -96,7 +96,7 @@ suite('HighlightsTreeProvider 测试', () => {
         assert.strictEqual(item.description, 'Global · Whole Word · Custom Color');
     });
 
-    test('HighlightItem: 无编辑器时禁用跳转', () => {
+    test('HighlightItem: uses command wiring without active editor state', () => {
         const item = new HighlightItem(
             'highlight:test',
             'test',
@@ -107,12 +107,15 @@ suite('HighlightsTreeProvider 测试', () => {
             'Whole Word',
             false,
             undefined,
-            false // hasActiveEditor = false
+            undefined,
+            2
         );
 
-        assert.strictEqual(item.hasActiveEditor, false);
-        assert.strictEqual(item.tooltip, 'No active editor - cannot jump to "test"');
-        assert.strictEqual(item.command, undefined);
+        assert.strictEqual(Object.prototype.hasOwnProperty.call(item, 'hasActiveEditor'), false);
+        assert.strictEqual(item.tooltip, 'Click to jump to first occurrence of "test"');
+        assert.ok(item.command);
+        assert.strictEqual(item.command.command, 'persistent-highlighter.jumpToHighlight');
+        assert.strictEqual(item.description, '2 in workspace · Global · Whole Word · Color 1');
     });
 
     test('HighlightsTreeProvider: 创建实例', () => {
@@ -241,18 +244,25 @@ suite('HighlightsTreeProvider 测试', () => {
         }
     });
 
-    test('HighlightsTreeProvider: 无编辑器时获取子元素', async () => {
-        // 设置无编辑器状态
+    test('HighlightsTreeProvider: no active editor shows saved rules', async () => {
         getMockVSCodeWindow().activeTextEditor = undefined;
 
         const newProvider = new HighlightsTreeProvider(mockContext);
         const children = await newProvider.getChildren();
+        const testItem = children.find((child) => child instanceof HighlightItem && child.text === 'test') as HighlightItem | undefined;
 
-        assert.ok(Array.isArray(children));
-        // 应该返回 "No active editor" 提示项
-        if (children.length > 0) {
-            assert.ok(children[0].label?.toString().includes('No active editor'));
-        }
+        assert.strictEqual(children.some((child) => child.label?.toString().includes('No active editor')), false);
+        assert.ok(testItem);
+        assert.ok(testItem.command);
+        assert.strictEqual(testItem.command.command, 'persistent-highlighter.jumpToHighlight');
+        assert.ok(testItem.description?.toString().includes('2 in workspace'));
+        assert.strictEqual(testItem.description?.toString().includes('0 in file'), false);
+
+        const matchChildren = await newProvider.getChildren(testItem);
+        assert.ok(matchChildren.length > 0);
+        assert.strictEqual(matchChildren[0].contextValue, 'highlightMatchLocation');
+        assert.ok(matchChildren[0].command);
+        newProvider.dispose();
     });
 
     test('HighlightsTreeProvider: onDidChangeTreeData 事件', (done) => {

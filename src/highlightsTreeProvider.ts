@@ -26,8 +26,7 @@ export class HighlightItem extends vscode.TreeItem {
             light: { backgroundColor: string };
             dark: { backgroundColor: string };
         },
-        public readonly hasActiveEditor: boolean = true,
-        public readonly activeFileMatchCount: number = 0,
+        public readonly activeFileMatchCount?: number,
         public readonly workspaceMatchCount: number = 0
     ) {
         super(text, workspaceMatchCount > 0 ? vscode.TreeItemCollapsibleState.Collapsed : collapsibleState);
@@ -38,26 +37,24 @@ export class HighlightItem extends vscode.TreeItem {
         this.description = [statusLabel, matchLabel, scopeLabel, matchModeLabel, colorLabel].filter(Boolean).join(' · ');
         this.iconPath = new vscode.ThemeIcon('symbol-color');
         this.contextValue = 'highlightItem';
-
-        if (hasActiveEditor) {
-            this.tooltip = `Click to jump to first occurrence of "${text}"`;
-            this.command = {
-                command: 'persistent-highlighter.jumpToHighlight',
-                title: 'Jump to Highlight',
-                arguments: [text]
-            };
-        } else {
-            this.tooltip = `No active editor - cannot jump to "${text}"`;
-            this.command = undefined; // 禁用跳转
-        }
+        this.tooltip = `Click to jump to first occurrence of "${text}"`;
+        this.command = {
+            command: 'persistent-highlighter.jumpToHighlight',
+            title: 'Jump to Highlight',
+            arguments: [text]
+        };
     }
 
-    private createMatchLabel(activeFileMatchCount: number, workspaceMatchCount: number): string | undefined {
+    private createMatchLabel(activeFileMatchCount: number | undefined, workspaceMatchCount: number): string | undefined {
         if (workspaceMatchCount > 0) {
+            if (activeFileMatchCount === undefined) {
+                return `${workspaceMatchCount} in workspace`;
+            }
+
             return `${activeFileMatchCount} in file · ${workspaceMatchCount} in workspace`;
         }
 
-        if (activeFileMatchCount > 0) {
+        if (activeFileMatchCount !== undefined && activeFileMatchCount > 0) {
             return `${activeFileMatchCount} in file`;
         }
 
@@ -123,11 +120,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
             return [];
         }
 
-        if (!this.currentEditor) {
-            return [this.createNoEditorItem()];
-        }
-
-        const activeTerms = await this.getActiveTermsForCurrentFileAndWorkspace();
+        const activeTerms = await this.getVisibleTermsForCurrentContext();
         if (activeTerms.length === 0) {
             return [this.createNoHighlightsItem()];
         }
@@ -135,14 +128,6 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         return activeTerms.map(({ term, activeFileMatchCount, workspaceMatchCount }) =>
             this.createHighlightItem(term, activeFileMatchCount, workspaceMatchCount)
         );
-    }
-
-    private createNoEditorItem(): HighlightItem {
-        const item = new vscode.TreeItem('No active editor', vscode.TreeItemCollapsibleState.None);
-        item.description = 'Open a file to see highlights';
-        item.iconPath = new vscode.ThemeIcon('info');
-        item.contextValue = 'noEditor';
-        return item as HighlightItem;
     }
 
     private createNoHighlightsItem(): HighlightItem {
@@ -155,7 +140,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
 
     private createHighlightItem(
         term: HighlightedTerm,
-        activeFileMatchCount: number,
+        activeFileMatchCount: number | undefined,
         workspaceMatchCount: number
     ): HighlightItem {
         return new HighlightItem(
@@ -168,33 +153,38 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
             getHighlightMatchModeLabel(term),
             term.isCustomColor,
             term.customColor,
-            true,
             activeFileMatchCount,
             workspaceMatchCount
         );
     }
 
-    private async getActiveTermsForCurrentFileAndWorkspace(): Promise<{
+    private async getVisibleTermsForCurrentContext(): Promise<{
         term: HighlightedTerm;
-        activeFileMatchCount: number;
+        activeFileMatchCount: number | undefined;
         workspaceMatchCount: number;
     }[]> {
         const terms = this.getTerms();
         const currentEditor = this.currentEditor;
-        if (!currentEditor) {
-            return [];
-        }
-
         const caseSensitive = this.getCaseSensitiveConfig();
         const workspaceFolder = WorkspaceMatchUtils.getCurrentWorkspaceFolder(currentEditor);
-        const activeTerms = terms.filter((term) => term.enabled !== false);
         const result: {
             term: HighlightedTerm;
-            activeFileMatchCount: number;
+            activeFileMatchCount: number | undefined;
             workspaceMatchCount: number;
         }[] = [];
 
-        for (const term of activeTerms) {
+        if (!currentEditor) {
+            for (const term of terms) {
+                const workspaceMatchCount = workspaceFolder
+                    ? (await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive)).length
+                    : 0;
+                result.push({ term, activeFileMatchCount: undefined, workspaceMatchCount });
+            }
+
+            return result;
+        }
+
+        for (const term of terms.filter((candidate) => candidate.enabled !== false)) {
             const activeFileMatchCount = doesHighlightApplyToDocument(term, currentEditor.document)
                 ? EditorUtils.findHighlightRanges(currentEditor.document, term, caseSensitive).length
                 : 0;
