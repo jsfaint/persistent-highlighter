@@ -22,6 +22,10 @@ import type { MockExtensionContext } from './helpers';
 
 type EditableTextEditor = vscode.TextEditor & { document?: vscode.TextDocument };
 
+function waitForAsyncWork(): Promise<void> {
+    return new Promise((resolve) => setImmediate(resolve));
+}
+
 suite('Extension 核心功能测试', () => {
     let mockContext: MockExtensionContext;
     let mockDocument: vscode.TextDocument;
@@ -160,11 +164,205 @@ suite('Extension 核心功能测试', () => {
         }) as typeof mockWindow.showErrorMessage;
 
         const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        updateCalled = false;
         await manager.editHighlightRule(regexRule.id);
 
         assert.strictEqual(updateCalled, false);
         assert.strictEqual(storedTerms[0].text, 'test');
         assert.ok(errorMessage.includes('Invalid regular expression'));
+    });
+
+    test('HighlightManager: annotation tag profile adds built-ins and custom tags without duplicates', async () => {
+        let storedTerms: HighlightedTerm[] = [
+            { id: 'highlight:todo', text: 'todo', colorId: 2, enabled: false, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' }
+        ];
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration(false),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTags') {
+                    return ['SECURITY', 'todo'] as T;
+                }
+                if (section === 'caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            }
+        } as vscode.WorkspaceConfiguration);
+
+        const manager = new HighlightManager(mockContext);
+        await manager.installAnnotationTagProfile();
+        await manager.installAnnotationTagProfile();
+
+        const todoRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'todo:');
+        const securityRule = storedTerms.find((term) => term.text === 'SECURITY');
+        const deprecatedRule = storedTerms.find((term) => term.text === 'DEPRECATED:');
+
+        assert.strictEqual(todoRules.length, 1);
+        assert.strictEqual(todoRules[0].text, 'TODO:');
+        assert.strictEqual(todoRules[0].enabled, true);
+        assert.strictEqual(todoRules[0].isAnnotationTag, true);
+        assert.strictEqual(todoRules[0].annotationColorId, 0);
+        assert.ok(securityRule?.isAnnotationTag);
+        assert.ok(deprecatedRule?.isAnnotationTag);
+        assert.strictEqual(deprecatedRule?.annotationColorId, 10);
+    });
+
+    test('HighlightManager: annotation tag profile preserves colon-suffixed custom tags', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration(false),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTags') {
+                    return ['SECURITY:'] as T;
+                }
+                if (section === 'caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            }
+        } as vscode.WorkspaceConfiguration);
+
+        const manager = new HighlightManager(mockContext);
+        await manager.installAnnotationTagProfile();
+
+        assert.ok(storedTerms.some((term) => term.text === 'SECURITY:'));
+        assert.strictEqual(storedTerms.some((term) => term.text === 'SECURITY'), false);
+    });
+
+    test('HighlightManager: annotation tag profile removes existing bare and colon built-in duplicates', async () => {
+        let storedTerms: HighlightedTerm[] = [
+            { id: 'highlight:note', text: 'NOTE', colorId: 2, enabled: false, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global', isAnnotationTag: true },
+            { id: 'highlight:note%3A', text: 'NOTE:', colorId: 4, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global', isAnnotationTag: true }
+        ];
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => createMockConfiguration(false);
+
+        const manager = new HighlightManager(mockContext);
+        await manager.installAnnotationTagProfile();
+        await manager.installAnnotationTagProfile();
+
+        const bareNoteRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'note');
+        const colonNoteRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'note:');
+
+        assert.strictEqual(bareNoteRules.length, 0);
+        assert.strictEqual(colonNoteRules.length, 1);
+        assert.strictEqual(colonNoteRules[0].annotationColorId, 2);
+    });
+
+    test('HighlightManager: activation silently installs annotation tag profile', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        let informationMessages = 0;
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWindow.showInformationMessage = (async () => {
+            informationMessages++;
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
+
+        assert.ok(storedTerms.some((term) => term.text === 'TODO:' && term.isAnnotationTag));
+        assert.ok(storedTerms.some((term) => term.text === 'DEPRECATED:' && term.annotationColorId === 10));
+        assert.strictEqual(informationMessages, 0);
+    });
+
+    test('HighlightManager: annotationTags configuration changes silently resync configured tags', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        let configuredTags: string[] = [];
+        let configurationListener: ((event: vscode.ConfigurationChangeEvent) => void) | undefined;
+        let informationMessages = 0;
+        const mockWorkspace = getMockVSCodeWorkspace();
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration(false),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTags') {
+                    return configuredTags as T;
+                }
+                if (section === 'caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            }
+        } as vscode.WorkspaceConfiguration);
+        mockWorkspace.onDidChangeConfiguration = ((listener: (event: vscode.ConfigurationChangeEvent) => void) => {
+            configurationListener = listener;
+            return { dispose: () => {} };
+        }) as typeof mockWorkspace.onDidChangeConfiguration;
+        mockWindow.showInformationMessage = (async () => {
+            informationMessages++;
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        const initialCount = storedTerms.length;
+
+        configuredTags = ['SECURITY'];
+        configurationListener?.({
+            affectsConfiguration: (section: string) => section === 'persistent-highlighter.annotationTags'
+        } as vscode.ConfigurationChangeEvent);
+        await waitForAsyncWork();
+
+        assert.ok(storedTerms.length > initialCount);
+        assert.ok(storedTerms.some((term) => term.text === 'SECURITY' && term.isAnnotationTag));
+        assert.strictEqual(storedTerms.filter((term) => term.text === 'TODO:').length, 1);
+        assert.strictEqual(informationMessages, 0);
+    });
+
+    test('HighlightManager: manual annotation tag profile command reports repair and idempotent messages', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        const informationMessages: string[] = [];
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWindow.showInformationMessage = (async (message: string) => {
+            informationMessages.push(message);
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        informationMessages.length = 0;
+
+        storedTerms = storedTerms.filter((term) => term.text !== 'TODO:');
+        await manager.installAnnotationTagProfile();
+        await manager.installAnnotationTagProfile();
+
+        assert.ok(informationMessages.some((message) => message.includes('1 added')));
+        assert.ok(informationMessages.includes('Annotation tag profile is already installed.'));
+        assert.strictEqual(storedTerms.filter((term) => term.text === 'TODO:').length, 1);
     });
 
     test('createHighlightRegex: 词边界测试 - 完整匹配', () => {
@@ -179,6 +377,15 @@ suite('Extension 核心功能测试', () => {
         const regex = createHighlightRegex('test.txt', false);
         const text = 'test.txt file';
         assert.ok(regex.test(text));
+    });
+
+    test('createHighlightRegex: annotation tags include trailing colon in matches', () => {
+        const regex = createHighlightRegex('NOTE:', false);
+        const text = 'NOTE: check this note';
+        const match = regex.exec(text);
+
+        assert.ok(match);
+        assert.strictEqual(match[0], 'NOTE:');
     });
 
     test('findWholeWord: 大小写敏感查找', () => {

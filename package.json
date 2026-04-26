@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/jsfaint/persistent-highlighter.git"
   },
-  "version": "0.2.1",
+  "version": "0.3.0",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -37,6 +37,14 @@
           "type": "boolean",
           "default": false,
           "description": "Collapse context menu submenus by default"
+        },
+        "persistent-highlighter.annotationTags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional annotation tags to automatically synchronize with the built-in annotation tag profile. Built-ins include TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED: with distinct high-contrast colors."
         }
       }
     },
@@ -80,6 +88,14 @@
       {
         "command": "persistent-highlighter.addHighlightWithCustomColor",
         "title": "Persistent Highlighter: Add Custom Color Highlight"
+      },
+      {
+        "command": "persistent-highlighter.installAnnotationTagProfile",
+        "title": "Persistent Highlighter: Install Annotation Tag Profile"
+      },
+      {
+        "command": "persistent-highlighter.openMatchLocation",
+        "title": "Persistent Highlighter: Open Match Location"
       },
       {
         "command": "persistent-highlighter.jumpToNextHighlight",

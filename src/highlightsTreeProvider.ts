@@ -1,13 +1,16 @@
 import * as vscode from 'vscode';
 import { GLOBAL_STATE_KEY } from './constants';
 import { EditorUtils } from './utils/editor-utils';
-import type { HighlightedTerm } from './types';
+import type { HighlightMatchLocation, HighlightedTerm } from './types';
+import { WorkspaceMatchUtils } from './utils/workspace-match-utils';
 import {
     doesHighlightApplyToDocument,
     getHighlightMatchModeLabel,
     getHighlightScopeLabel,
     normalizeHighlightedTerms
 } from './utils/highlight-term-utils';
+
+type HighlightTreeItem = HighlightItem | MatchLocationItem;
 
 export class HighlightItem extends vscode.TreeItem {
     constructor(
@@ -23,13 +26,16 @@ export class HighlightItem extends vscode.TreeItem {
             light: { backgroundColor: string };
             dark: { backgroundColor: string };
         },
-        public readonly hasActiveEditor: boolean = true
+        public readonly hasActiveEditor: boolean = true,
+        public readonly activeFileMatchCount: number = 0,
+        public readonly workspaceMatchCount: number = 0
     ) {
-        super(text, collapsibleState);
+        super(text, workspaceMatchCount > 0 ? vscode.TreeItemCollapsibleState.Collapsed : collapsibleState);
 
         const colorLabel = isCustomColor ? 'Custom Color' : `Color ${colorId + 1}`;
         const statusLabel = isEnabled ? undefined : 'Disabled';
-        this.description = [statusLabel, scopeLabel, matchModeLabel, colorLabel].filter(Boolean).join(' · ');
+        const matchLabel = this.createMatchLabel(activeFileMatchCount, workspaceMatchCount);
+        this.description = [statusLabel, matchLabel, scopeLabel, matchModeLabel, colorLabel].filter(Boolean).join(' · ');
         this.iconPath = new vscode.ThemeIcon('symbol-color');
         this.contextValue = 'highlightItem';
 
@@ -45,11 +51,38 @@ export class HighlightItem extends vscode.TreeItem {
             this.command = undefined; // 禁用跳转
         }
     }
+
+    private createMatchLabel(activeFileMatchCount: number, workspaceMatchCount: number): string | undefined {
+        if (workspaceMatchCount > 0) {
+            return `${activeFileMatchCount} in file · ${workspaceMatchCount} in workspace`;
+        }
+
+        if (activeFileMatchCount > 0) {
+            return `${activeFileMatchCount} in file`;
+        }
+
+        return undefined;
+    }
 }
 
-export class HighlightsTreeProvider implements vscode.TreeDataProvider<HighlightItem> {
-    private _onDidChangeTreeData: vscode.EventEmitter<HighlightItem | undefined | null | void> = new vscode.EventEmitter<HighlightItem | undefined | null | void>();
-    readonly onDidChangeTreeData: vscode.Event<HighlightItem | undefined | null | void> = this._onDidChangeTreeData.event;
+export class MatchLocationItem extends vscode.TreeItem {
+    constructor(public readonly match: HighlightMatchLocation) {
+        super(`${match.fileName}:${match.line}:${match.character}`, vscode.TreeItemCollapsibleState.None);
+        this.description = match.preview;
+        this.tooltip = `${match.fileName}:${match.line}:${match.character}\n${match.preview}`;
+        this.iconPath = new vscode.ThemeIcon('location');
+        this.contextValue = 'highlightMatchLocation';
+        this.command = {
+            command: 'persistent-highlighter.openMatchLocation',
+            title: 'Open Match Location',
+            arguments: [match]
+        };
+    }
+}
+
+export class HighlightsTreeProvider implements vscode.TreeDataProvider<HighlightTreeItem> {
+    private _onDidChangeTreeData: vscode.EventEmitter<HighlightTreeItem | undefined | null | void> = new vscode.EventEmitter<HighlightTreeItem | undefined | null | void>();
+    readonly onDidChangeTreeData: vscode.Event<HighlightTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private currentEditor: vscode.TextEditor | undefined;
     private editorChangeListener: vscode.Disposable;
 
@@ -66,26 +99,41 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         this._onDidChangeTreeData.fire();
     }
 
-    getTreeItem(element: HighlightItem): vscode.TreeItem {
+    getTreeItem(element: HighlightTreeItem): vscode.TreeItem {
         return element;
     }
 
-    getChildren(element?: HighlightItem): Thenable<HighlightItem[]> {
+    async getChildren(element?: HighlightTreeItem): Promise<HighlightTreeItem[]> {
         if (element) {
-            return Promise.resolve([]);
+            if (element instanceof HighlightItem) {
+                const term = this.getTerms().find((candidate) => candidate.id === element.ruleId);
+                if (!term) {
+                    return [];
+                }
+
+                const workspaceFolder = WorkspaceMatchUtils.getCurrentWorkspaceFolder(this.currentEditor);
+                if (!workspaceFolder) {
+                    return [];
+                }
+
+                const matches = await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, this.getCaseSensitiveConfig());
+                return matches.map((match) => new MatchLocationItem(match));
+            }
+
+            return [];
         }
 
         if (!this.currentEditor) {
-            return Promise.resolve([this.createNoEditorItem()]);
+            return [this.createNoEditorItem()];
         }
 
-        const activeTerms = this.getActiveTermsForCurrentFile();
+        const activeTerms = await this.getActiveTermsForCurrentFileAndWorkspace();
         if (activeTerms.length === 0) {
-            return Promise.resolve([this.createNoHighlightsItem()]);
+            return [this.createNoHighlightsItem()];
         }
 
-        return Promise.resolve(
-            activeTerms.map(term => this.createHighlightItem(term))
+        return activeTerms.map(({ term, activeFileMatchCount, workspaceMatchCount }) =>
+            this.createHighlightItem(term, activeFileMatchCount, workspaceMatchCount)
         );
     }
 
@@ -105,35 +153,61 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         return item as HighlightItem;
     }
 
-    private createHighlightItem(term: HighlightedTerm): HighlightItem {
+    private createHighlightItem(
+        term: HighlightedTerm,
+        activeFileMatchCount: number,
+        workspaceMatchCount: number
+    ): HighlightItem {
         return new HighlightItem(
             term.id ?? term.text,
             term.text,
             term.colorId,
-            vscode.TreeItemCollapsibleState.None,
+            workspaceMatchCount > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
             term.enabled ?? true,
             getHighlightScopeLabel(term),
             getHighlightMatchModeLabel(term),
             term.isCustomColor,
             term.customColor,
-            true
+            true,
+            activeFileMatchCount,
+            workspaceMatchCount
         );
     }
 
-    private getActiveTermsForCurrentFile(): HighlightedTerm[] {
+    private async getActiveTermsForCurrentFileAndWorkspace(): Promise<{
+        term: HighlightedTerm;
+        activeFileMatchCount: number;
+        workspaceMatchCount: number;
+    }[]> {
         const terms = this.getTerms();
         const currentEditor = this.currentEditor;
         if (!currentEditor) {
             return [];
         }
 
-        const fileContent = currentEditor.document.getText();
         const caseSensitive = this.getCaseSensitiveConfig();
+        const workspaceFolder = WorkspaceMatchUtils.getCurrentWorkspaceFolder(currentEditor);
+        const activeTerms = terms.filter((term) => term.enabled !== false);
+        const result: {
+            term: HighlightedTerm;
+            activeFileMatchCount: number;
+            workspaceMatchCount: number;
+        }[] = [];
 
-        return terms.filter((term) =>
-            doesHighlightApplyToDocument(term, currentEditor.document) &&
-            EditorUtils.isTermInFile(term, fileContent, caseSensitive)
-        );
+        for (const term of activeTerms) {
+            const activeFileMatchCount = doesHighlightApplyToDocument(term, currentEditor.document)
+                ? EditorUtils.findHighlightRanges(currentEditor.document, term, caseSensitive).length
+                : 0;
+            const workspaceMatchCount = workspaceFolder
+                ? (await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive)).length
+                : 0;
+
+            if (activeFileMatchCount > 0 || workspaceMatchCount > 0) {
+                result.push({ term, activeFileMatchCount, workspaceMatchCount });
+            }
+        }
+
+        return result;
     }
 
     private getCaseSensitiveConfig(): boolean {

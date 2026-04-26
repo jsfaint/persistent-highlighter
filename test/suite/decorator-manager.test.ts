@@ -201,6 +201,47 @@ suite("DecoratorManager Suite", () => {
         assert.ok(result.customHighlights.size > 0, "应该有自定义颜色");
     });
 
+    test("annotation tag highlights should use annotation decoration cache", () => {
+        const highlights: CachedHighlight[] = [
+            {
+                text: "TODO",
+                ranges: [new vscode.Range(0, 0, 0, 4)],
+                colorId: 0,
+                isAnnotationTag: true,
+                annotationColorId: 0
+            }
+        ];
+
+        decoratorManager.applyHighlightsToEditor(textEditor, highlights);
+
+        assert.strictEqual(mockEditor.decorations.size, 1, "应该只应用 annotation tag 装饰器");
+        assert.strictEqual(decoratorManager["annotationTagDecorationTypes"].size, 1);
+    });
+
+    test("annotation tag highlights should use distinct decoration colors", () => {
+        const highlights: CachedHighlight[] = [
+            {
+                text: "TODO",
+                ranges: [new vscode.Range(0, 0, 0, 4)],
+                colorId: 0,
+                isAnnotationTag: true,
+                annotationColorId: 0
+            },
+            {
+                text: "FIXME",
+                ranges: [new vscode.Range(1, 0, 1, 5)],
+                colorId: 0,
+                isAnnotationTag: true,
+                annotationColorId: 1
+            }
+        ];
+
+        decoratorManager.applyHighlightsToEditor(textEditor, highlights);
+
+        assert.strictEqual(mockEditor.decorations.size, 2, "不同 annotation tag 颜色应该使用不同装饰器");
+        assert.strictEqual(decoratorManager["annotationTagDecorationTypes"].size, 2);
+    });
+
     test("getCustomColorKey 应该为相同文本和颜色生成相同的键", () => {
         const customColor: ColorDefinition = {
             light: { backgroundColor: "rgba(255, 0, 0, 0.5)" },

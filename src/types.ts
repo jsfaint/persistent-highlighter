@@ -9,6 +9,13 @@ export interface ColorDefinition {
     dark: { backgroundColor: string };
 }
 
+export interface AnnotationTagColorDefinition {
+    light: { backgroundColor: string; color: string };
+    dark: { backgroundColor: string; color: string };
+    borderColor: string;
+    overviewRulerColor: string;
+}
+
 /**
  * 高亮颜色类型别名 - 向后兼容
  */
@@ -43,6 +50,8 @@ export interface HighlightedTerm {
     scopeValue?: string;
     isCustomColor?: boolean;
     customColor?: HighlightColor;
+    isAnnotationTag?: boolean;
+    annotationColorId?: number;
 }
 
 /**
@@ -63,6 +72,26 @@ export interface CachedHighlight {
     colorId: number;
     isCustomColor?: boolean;
     customColor?: HighlightColor;
+    isAnnotationTag?: boolean;
+    annotationColorId?: number;
+}
+
+export interface SerializedRange {
+    startLine: number;
+    startCharacter: number;
+    endLine: number;
+    endCharacter: number;
+}
+
+export interface HighlightMatchLocation {
+    ruleId: string;
+    text: string;
+    uri: string;
+    fileName: string;
+    line: number;
+    character: number;
+    preview: string;
+    range: SerializedRange;
 }
 
 /**
