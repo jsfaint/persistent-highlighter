@@ -20,6 +20,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
 - **Workspace Match Navigator**: Expand highlight rules in the sidebar to see current-workspace match counts and jump to exact match locations.
 - **Annotation Tag Profile**: Automatically synchronize high-contrast, bold highlights with distinct semantic colors for common code-note tags such as TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED:.
+- **Ripgrep-Accelerated Workspace Search**: Uses system `rg` when available to speed up workspace match discovery, with a safe built-in fallback.
 - **Rule Scope Control**: Limit highlights to the current workspace, file, or language.
 - **Per-Rule Settings**: Toggle enable state, case sensitivity, and match mode for each highlight rule.
 - **Regex Rule Validation**: Prevents invalid regex patterns from being saved when editing existing regex rules.
@@ -101,6 +102,20 @@ You can now access highlighting operations directly from the editor's right-clic
    - Remove individual highlights
    - Clear all highlights at once
 
+### Workspace Match Navigator
+
+The sidebar shows both active-file and current-workspace match counts for each rule. Expand a rule to list matching locations across the current workspace, then select a location to open the file and reveal the exact range.
+
+For best performance, Persistent Highlighter uses the system `rg` command when it is available. `rg` is only used to find candidate files quickly; final match ranges are still computed by the extension so existing whole-word, substring, CJK, underscore, and annotation tag matching behavior stays consistent.
+
+If `rg` is not installed, the extension automatically falls back to the built-in VS Code scan path.
+
+Install ripgrep for faster workspace match discovery:
+
+- macOS: `brew install ripgrep`
+- Windows: `winget install BurntSushi.ripgrep.MSVC`
+- Linux: use your package manager, for example `sudo apt install ripgrep`
+
 ### Annotation Tag Profile
 
 The extension automatically creates and synchronizes bold, high-contrast local highlight rules for common code-note tags on activation:
@@ -164,6 +179,21 @@ The extension offers 18 carefully selected preset colors:
 - **Rose** (#F5B7B1)
 
 ## Recent Updates
+
+### Version 0.3.0
+
+- **Workspace Match Navigator**:
+  - Added current-workspace match counts in the Highlights sidebar
+  - Added expandable match location rows that open files and reveal exact ranges
+  - Uses system `rg` when available to speed up workspace candidate discovery, with a safe VS Code scan fallback
+- **Annotation Tag Profile**:
+  - Automatically synchronizes common code-note tags on activation and configuration changes
+  - Built-in tags match the trailing colon, such as `TODO:` and `NOTE:`
+  - Built-in annotation tags use distinct bold, high-contrast semantic colors
+  - Custom tags from `persistent-highlighter.annotationTags` keep their exact configured text
+- **Testing**:
+  - Added coverage for workspace match navigation, annotation tag synchronization, distinct tag colors, colon-suffixed built-ins, and rg fallback behavior
+  - Test suite now passes with **97 tests**
 
 ### Version 0.2.1
 
@@ -333,6 +363,7 @@ The extension offers 18 carefully selected preset colors:
 - Node.js (version 16 or higher)
 - Visual Studio Code
 - TypeScript
+- Optional: ripgrep (`rg`) for faster workspace match scanning
 
 ### Development Setup
 
@@ -377,14 +408,16 @@ The extension uses a comprehensive architecture with:
 - `HighlightsTreeProvider` class: Manages the sidebar tree view for highlight management with proper event listener cleanup
 - `DecoratorManager` class: Handles all text decoration creation, application, and disposal with unified color key generation
 - `EditorUtils` class: Provides shared utility functions for editor operations, including regex matching with safety checks
+- `WorkspaceMatchUtils` class: Scans the current workspace for match locations, using system `rg` as a fast candidate-file path when available
 - `RegexCache` class: Singleton pattern for caching regex expressions with FIFO eviction policy and lastIndex reset
 - `ColorUtils` class: Handles color conversion and validation operations
-- Unit Testing: Comprehensive test suite using Mocha framework with VS Code Test Electron (75 tests, all passing)
+- Unit Testing: Comprehensive test suite using Mocha framework with VS Code Test Electron (97 tests, all passing)
 - VS Code API integration: Uses `TextEditorDecorationType` for rendering highlights
 - State persistence: Uses `globalState` to store highlights across sessions
 - Event-driven updates: Listens to document changes, active editor changes, and configuration changes
-- Performance optimization: Intelligent caching, large file handling, and regex safety limits (MAX_REGEX_MATCHES)
+- Performance optimization: Intelligent caching, large file handling, rg-first workspace candidate scanning, and regex safety limits (MAX_REGEX_MATCHES)
 - Custom color management: Dynamic decoration type creation for custom colors with proper disposal
+- Annotation tag management: Automatically synchronized bold, high-contrast code-note rules with distinct semantic colors
 - Memory management: Automatic decorator cleanup and proper resource disposal
 - Unicode support: Advanced text comparison using `localeCompare` for international characters
 - Code quality: Follows Clean Code principles with minimal code duplication and clear separation of concerns
