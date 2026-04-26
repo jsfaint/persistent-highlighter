@@ -196,9 +196,8 @@ suite('Extension 核心功能测试', () => {
             }
         } as vscode.WorkspaceConfiguration);
 
-        const manager = new HighlightManager(mockContext);
-        await manager.installAnnotationTagProfile();
-        await manager.installAnnotationTagProfile();
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
 
         const todoRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'todo:');
         const securityRule = storedTerms.find((term) => term.text === 'SECURITY');
@@ -235,8 +234,8 @@ suite('Extension 核心功能测试', () => {
             }
         } as vscode.WorkspaceConfiguration);
 
-        const manager = new HighlightManager(mockContext);
-        await manager.installAnnotationTagProfile();
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
 
         assert.ok(storedTerms.some((term) => term.text === 'SECURITY:'));
         assert.strictEqual(storedTerms.some((term) => term.text === 'SECURITY'), false);
@@ -255,9 +254,8 @@ suite('Extension 核心功能测试', () => {
         };
         mockWorkspace.getConfiguration = () => createMockConfiguration(false);
 
-        const manager = new HighlightManager(mockContext);
-        await manager.installAnnotationTagProfile();
-        await manager.installAnnotationTagProfile();
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
 
         const bareNoteRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'note');
         const colonNoteRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'note:');
@@ -338,7 +336,7 @@ suite('Extension 核心功能测试', () => {
         assert.strictEqual(informationMessages, 0);
     });
 
-    test('HighlightManager: manual annotation tag profile command reports repair and idempotent messages', async () => {
+    test('HighlightManager: annotation tag profile startup repair stays silent and idempotent', async () => {
         let storedTerms: HighlightedTerm[] = [];
         const informationMessages: string[] = [];
         const mockWindow = getMockVSCodeWindow();
@@ -352,16 +350,15 @@ suite('Extension 核心功能测试', () => {
             return '';
         }) as typeof mockWindow.showInformationMessage;
 
-        const manager = new HighlightManager(mockContext);
+        new HighlightManager(mockContext);
         await waitForAsyncWork();
         informationMessages.length = 0;
 
         storedTerms = storedTerms.filter((term) => term.text !== 'TODO:');
-        await manager.installAnnotationTagProfile();
-        await manager.installAnnotationTagProfile();
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
 
-        assert.ok(informationMessages.some((message) => message.includes('1 added')));
-        assert.ok(informationMessages.includes('Annotation tag profile is already installed.'));
+        assert.deepStrictEqual(informationMessages, []);
         assert.strictEqual(storedTerms.filter((term) => term.text === 'TODO:').length, 1);
     });
 

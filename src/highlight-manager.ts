@@ -41,10 +41,6 @@ type HighlightRuleAction =
     | "toggleCaseSensitive"
     | "changeMatchMode";
 
-type AnnotationTagProfileSyncOptions = {
-    notify: boolean;
-};
-
 /**
  * 高亮管理器
  * 管理所有高亮相关的操作，包括添加、删除、显示和跳转
@@ -109,7 +105,7 @@ export class HighlightManager implements vscode.Disposable {
                 }
 
                 if (event.affectsConfiguration("persistent-highlighter.annotationTags")) {
-                    void this.#syncAnnotationTagProfile({ notify: false });
+                    void this.#syncAnnotationTagProfile();
                 }
             },
             null,
@@ -126,7 +122,7 @@ export class HighlightManager implements vscode.Disposable {
 
     async #initializeStoredTerms(): Promise<void> {
         await this.#migrateStoredTerms();
-        await this.#syncAnnotationTagProfile({ notify: false });
+        await this.#syncAnnotationTagProfile();
     }
 
     /**
@@ -363,23 +359,14 @@ export class HighlightManager implements vscode.Disposable {
         this.#refreshAllEditors();
     }
 
-    async installAnnotationTagProfile(): Promise<void> {
-        await this.#syncAnnotationTagProfile({ notify: true });
-    }
-
-    async #syncAnnotationTagProfile(options: AnnotationTagProfileSyncOptions): Promise<void> {
+    async #syncAnnotationTagProfile(): Promise<void> {
         const tags = this.#getConfiguredAnnotationTags();
         if (tags.length === 0) {
-            if (options.notify) {
-                vscode.window.showInformationMessage("No annotation tags are configured.");
-            }
             return;
         }
 
         const terms = this.#getTerms();
         let changed = false;
-        let added = 0;
-        let updated = 0;
 
         for (const tag of tags) {
             let existingIndex = this.#findPreferredAnnotationRuleIndex(terms, tag);
@@ -387,7 +374,6 @@ export class HighlightManager implements vscode.Disposable {
             if (existingIndex === -1) {
                 terms.push(this.#createAnnotationTagHighlight(tag));
                 changed = true;
-                added++;
                 continue;
             }
 
@@ -397,7 +383,6 @@ export class HighlightManager implements vscode.Disposable {
                     existingIndex--;
                 }
                 changed = true;
-                updated++;
             }
 
             const existing = terms[existingIndex];
@@ -418,21 +403,14 @@ export class HighlightManager implements vscode.Disposable {
                     this.#getCaseSensitiveConfig()
                 );
                 changed = true;
-                updated++;
             }
         }
 
         if (!changed) {
-            if (options.notify) {
-                vscode.window.showInformationMessage("Annotation tag profile is already installed.");
-            }
             return;
         }
 
         await this.#updateGlobalState(terms);
-        if (options.notify) {
-            vscode.window.showInformationMessage(`Annotation tag profile installed: ${added} added, ${updated} updated.`);
-        }
     }
 
     /**

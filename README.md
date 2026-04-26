@@ -18,6 +18,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Custom Color Support**: Use any hex color code for personalized highlighting.
 - **Color Selection UI**: Easy-to-use color picker for both built-in and custom colors.
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
+- **Startup-Ready Rule List**: The Highlights sidebar shows saved rules even when no file editor is active.
 - **Workspace Match Navigator**: Expand highlight rules in the sidebar to see current-workspace match counts and jump to exact match locations.
 - **Annotation Tag Profile**: Automatically synchronize high-contrast, bold highlights with distinct semantic colors for common code-note tags such as TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED:.
 - **Ripgrep-Accelerated Workspace Search**: Uses system `rg`/ripgrep when available to speed up workspace match discovery, with a safe built-in VS Code scan fallback.
@@ -43,7 +44,6 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - `Persistent Highlighter: Refresh`: Refresh the highlights tree view.
 - `Persistent Highlighter: Jump to Highlight`: Navigate to a specific highlight in the current file.
 - `Persistent Highlighter: Edit Highlight Rule`: Modify the text, scope, enabled state, case sensitivity, or match mode of an existing highlight.
-- `Persistent Highlighter: Install Annotation Tag Profile`: Repair or resync the built-in annotation tag rules without duplicating existing equivalent rules.
 
 ## Installation
 
@@ -102,9 +102,13 @@ You can now access highlighting operations directly from the editor's right-clic
    - Remove individual highlights
    - Clear all highlights at once
 
+When VS Code starts with no file editor active, the Highlights sidebar still shows your saved rules so you can manage them immediately. In this state, rule descriptions omit active-file counts and show workspace match counts when a workspace is available. Expanding a rule still lists clickable workspace match locations.
+
 ### Workspace Match Navigator
 
 The sidebar shows both active-file and current-workspace match counts for each rule. Expand a rule to list matching locations across the current workspace, then select a location to open the file and reveal the exact range.
+
+If no editor is active, the sidebar uses the first workspace folder as the workspace context and shows workspace counts without an active-file count.
 
 For best performance, Persistent Highlighter uses the system `rg`/ripgrep command when it is available. `rg` is only used to find candidate files quickly; final match ranges are still computed by the extension so existing whole-word, substring, CJK, underscore, and annotation tag matching behavior stays consistent.
 
@@ -122,7 +126,7 @@ The extension automatically creates and synchronizes bold, high-contrast local h
 
 `TODO:`, `FIXME:`, `NOTE:`, `BUG:`, `HACK:`, `WARN:`, `WARNING:`, `REVIEW:`, `OPTIMIZE:`, `XXX:`, and `DEPRECATED:`.
 
-Changes to `persistent-highlighter.annotationTags` are synchronized automatically. The `Persistent Highlighter: Install Annotation Tag Profile` command remains available as a safe repair/resync action. Sync creates missing rules, upgrades existing bare built-in annotation rules such as `NOTE` to `NOTE:`, re-enables existing equivalent rules when needed, assigns built-in tags distinct high-contrast colors, and does not create duplicates. Extra tags from `persistent-highlighter.annotationTags` keep the exact configured text and use a deterministic fallback color from the annotation palette.
+Changes to `persistent-highlighter.annotationTags` are synchronized automatically. Sync creates missing rules, upgrades existing bare built-in annotation rules such as `NOTE` to `NOTE:`, re-enables existing equivalent rules when needed, assigns built-in tags distinct high-contrast colors, and does not create duplicates. Extra tags from `persistent-highlighter.annotationTags` keep the exact configured text and use a deterministic fallback color from the annotation palette.
 
 ### Rule Editing
 
@@ -179,6 +183,17 @@ The extension offers 18 carefully selected preset colors:
 - **Rose** (#F5B7B1)
 
 ## Recent Updates
+
+### Version 0.3.1
+
+- **Highlights Sidebar Startup State**:
+  - Shows saved highlight rules even when no file editor is active
+  - Keeps rule management actions available from the sidebar immediately after startup
+  - Shows workspace match counts without displaying `0 in file` when there is no active editor
+  - Keeps expandable workspace match locations clickable without requiring an active editor first
+- **Testing**:
+  - Added regression coverage for no-active-editor sidebar rule rendering and command wiring
+  - Test suite now passes with **97 tests**
 
 ### Version 0.3.0
 

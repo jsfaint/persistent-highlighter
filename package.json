@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/jsfaint/persistent-highlighter.git"
   },
-  "version": "0.3.0",
+  "version": "0.3.1",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -88,10 +88,6 @@
       {
         "command": "persistent-highlighter.addHighlightWithCustomColor",
         "title": "Persistent Highlighter: Add Custom Color Highlight"
-      },
-      {
-        "command": "persistent-highlighter.installAnnotationTagProfile",
-        "title": "Persistent Highlighter: Install Annotation Tag Profile"
       },
       {
         "command": "persistent-highlighter.openMatchLocation",
