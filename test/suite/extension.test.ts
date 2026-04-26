@@ -22,6 +22,10 @@ import type { MockExtensionContext } from './helpers';
 
 type EditableTextEditor = vscode.TextEditor & { document?: vscode.TextDocument };
 
+function waitForAsyncWork(): Promise<void> {
+    return new Promise((resolve) => setImmediate(resolve));
+}
+
 suite('Extension 核心功能测试', () => {
     let mockContext: MockExtensionContext;
     let mockDocument: vscode.TextDocument;
@@ -160,6 +164,8 @@ suite('Extension 核心功能测试', () => {
         }) as typeof mockWindow.showErrorMessage;
 
         const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        updateCalled = false;
         await manager.editHighlightRule(regexRule.id);
 
         assert.strictEqual(updateCalled, false);
@@ -259,6 +265,104 @@ suite('Extension 核心功能测试', () => {
         assert.strictEqual(bareNoteRules.length, 0);
         assert.strictEqual(colonNoteRules.length, 1);
         assert.strictEqual(colonNoteRules[0].annotationColorId, 2);
+    });
+
+    test('HighlightManager: activation silently installs annotation tag profile', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        let informationMessages = 0;
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWindow.showInformationMessage = (async () => {
+            informationMessages++;
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
+
+        assert.ok(storedTerms.some((term) => term.text === 'TODO:' && term.isAnnotationTag));
+        assert.ok(storedTerms.some((term) => term.text === 'DEPRECATED:' && term.annotationColorId === 10));
+        assert.strictEqual(informationMessages, 0);
+    });
+
+    test('HighlightManager: annotationTags configuration changes silently resync configured tags', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        let configuredTags: string[] = [];
+        let configurationListener: ((event: vscode.ConfigurationChangeEvent) => void) | undefined;
+        let informationMessages = 0;
+        const mockWorkspace = getMockVSCodeWorkspace();
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration(false),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTags') {
+                    return configuredTags as T;
+                }
+                if (section === 'caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            }
+        } as vscode.WorkspaceConfiguration);
+        mockWorkspace.onDidChangeConfiguration = ((listener: (event: vscode.ConfigurationChangeEvent) => void) => {
+            configurationListener = listener;
+            return { dispose: () => {} };
+        }) as typeof mockWorkspace.onDidChangeConfiguration;
+        mockWindow.showInformationMessage = (async () => {
+            informationMessages++;
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        const initialCount = storedTerms.length;
+
+        configuredTags = ['SECURITY'];
+        configurationListener?.({
+            affectsConfiguration: (section: string) => section === 'persistent-highlighter.annotationTags'
+        } as vscode.ConfigurationChangeEvent);
+        await waitForAsyncWork();
+
+        assert.ok(storedTerms.length > initialCount);
+        assert.ok(storedTerms.some((term) => term.text === 'SECURITY' && term.isAnnotationTag));
+        assert.strictEqual(storedTerms.filter((term) => term.text === 'TODO:').length, 1);
+        assert.strictEqual(informationMessages, 0);
+    });
+
+    test('HighlightManager: manual annotation tag profile command reports repair and idempotent messages', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        const informationMessages: string[] = [];
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWindow.showInformationMessage = (async (message: string) => {
+            informationMessages.push(message);
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        informationMessages.length = 0;
+
+        storedTerms = storedTerms.filter((term) => term.text !== 'TODO:');
+        await manager.installAnnotationTagProfile();
+        await manager.installAnnotationTagProfile();
+
+        assert.ok(informationMessages.some((message) => message.includes('1 added')));
+        assert.ok(informationMessages.includes('Annotation tag profile is already installed.'));
+        assert.strictEqual(storedTerms.filter((term) => term.text === 'TODO:').length, 1);
     });
 
     test('createHighlightRegex: 词边界测试 - 完整匹配', () => {

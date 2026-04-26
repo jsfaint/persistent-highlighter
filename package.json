@@ -44,7 +44,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Additional annotation tags to include when installing the built-in annotation tag profile. Built-ins include TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED: with distinct high-contrast colors."
+          "description": "Additional annotation tags to automatically synchronize with the built-in annotation tag profile. Built-ins include TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED: with distinct high-contrast colors."
         }
       }
     },

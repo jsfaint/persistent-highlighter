@@ -19,7 +19,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Color Selection UI**: Easy-to-use color picker for both built-in and custom colors.
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
 - **Workspace Match Navigator**: Expand highlight rules in the sidebar to see current-workspace match counts and jump to exact match locations.
-- **Annotation Tag Profile**: Install high-contrast, bold highlights with distinct semantic colors for common code-note tags such as TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED:.
+- **Annotation Tag Profile**: Automatically synchronize high-contrast, bold highlights with distinct semantic colors for common code-note tags such as TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED:.
 - **Rule Scope Control**: Limit highlights to the current workspace, file, or language.
 - **Per-Rule Settings**: Toggle enable state, case sensitivity, and match mode for each highlight rule.
 - **Regex Rule Validation**: Prevents invalid regex patterns from being saved when editing existing regex rules.
@@ -42,7 +42,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - `Persistent Highlighter: Refresh`: Refresh the highlights tree view.
 - `Persistent Highlighter: Jump to Highlight`: Navigate to a specific highlight in the current file.
 - `Persistent Highlighter: Edit Highlight Rule`: Modify the text, scope, enabled state, case sensitivity, or match mode of an existing highlight.
-- `Persistent Highlighter: Install Annotation Tag Profile`: Create or enable the built-in annotation tag rules without duplicating existing equivalent rules.
+- `Persistent Highlighter: Install Annotation Tag Profile`: Repair or resync the built-in annotation tag rules without duplicating existing equivalent rules.
 
 ## Installation
 
@@ -103,11 +103,11 @@ You can now access highlighting operations directly from the editor's right-clic
 
 ### Annotation Tag Profile
 
-Run `Persistent Highlighter: Install Annotation Tag Profile` to create bold, high-contrast local highlight rules for common code-note tags:
+The extension automatically creates and synchronizes bold, high-contrast local highlight rules for common code-note tags on activation:
 
 `TODO:`, `FIXME:`, `NOTE:`, `BUG:`, `HACK:`, `WARN:`, `WARNING:`, `REVIEW:`, `OPTIMIZE:`, `XXX:`, and `DEPRECATED:`.
 
-The command is safe to run repeatedly. It creates missing rules, upgrades existing bare built-in annotation rules such as `NOTE` to `NOTE:`, re-enables existing equivalent rules when needed, assigns built-in tags distinct high-contrast colors, and does not create duplicates. Extra tags from `persistent-highlighter.annotationTags` keep the exact configured text and use a deterministic fallback color from the annotation palette.
+Changes to `persistent-highlighter.annotationTags` are synchronized automatically. The `Persistent Highlighter: Install Annotation Tag Profile` command remains available as a safe repair/resync action. Sync creates missing rules, upgrades existing bare built-in annotation rules such as `NOTE` to `NOTE:`, re-enables existing equivalent rules when needed, assigns built-in tags distinct high-contrast colors, and does not create duplicates. Extra tags from `persistent-highlighter.annotationTags` keep the exact configured text and use a deterministic fallback color from the annotation palette.
 
 ### Rule Editing
 
@@ -131,7 +131,7 @@ The extension provides several configuration options to customize behavior:
 ### Search Settings
 
 - `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for highlights (default: false)
-- `persistent-highlighter.annotationTags`: Additional annotation tags to include when installing the built-in annotation tag profile (default: `[]`)
+- `persistent-highlighter.annotationTags`: Additional annotation tags to automatically synchronize with the built-in annotation tag profile (default: `[]`)
 
 ### Context Menu Settings
 

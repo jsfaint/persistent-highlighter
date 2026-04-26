@@ -41,6 +41,10 @@ type HighlightRuleAction =
     | "toggleCaseSensitive"
     | "changeMatchMode";
 
+type AnnotationTagProfileSyncOptions = {
+    notify: boolean;
+};
+
 /**
  * 高亮管理器
  * 管理所有高亮相关的操作，包括添加、删除、显示和跳转
@@ -57,7 +61,7 @@ export class HighlightManager implements vscode.Disposable {
         this.#decoratorManager = new DecoratorManager();
 
         this.#registerEventListeners();
-        void this.#migrateStoredTerms();
+        void this.#initializeStoredTerms();
         this.#initializeHighlights();
     }
 
@@ -105,7 +109,7 @@ export class HighlightManager implements vscode.Disposable {
                 }
 
                 if (event.affectsConfiguration("persistent-highlighter.annotationTags")) {
-                    this.#refreshSidebar();
+                    void this.#syncAnnotationTagProfile({ notify: false });
                 }
             },
             null,
@@ -118,6 +122,11 @@ export class HighlightManager implements vscode.Disposable {
      */
     #initializeHighlights(): void {
         vscode.window.visibleTextEditors.forEach((editor) => this.#updateDecorations(editor));
+    }
+
+    async #initializeStoredTerms(): Promise<void> {
+        await this.#migrateStoredTerms();
+        await this.#syncAnnotationTagProfile({ notify: false });
     }
 
     /**
@@ -355,9 +364,15 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     async installAnnotationTagProfile(): Promise<void> {
+        await this.#syncAnnotationTagProfile({ notify: true });
+    }
+
+    async #syncAnnotationTagProfile(options: AnnotationTagProfileSyncOptions): Promise<void> {
         const tags = this.#getConfiguredAnnotationTags();
         if (tags.length === 0) {
-            vscode.window.showInformationMessage("No annotation tags are configured.");
+            if (options.notify) {
+                vscode.window.showInformationMessage("No annotation tags are configured.");
+            }
             return;
         }
 
@@ -408,12 +423,16 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         if (!changed) {
-            vscode.window.showInformationMessage("Annotation tag profile is already installed.");
+            if (options.notify) {
+                vscode.window.showInformationMessage("Annotation tag profile is already installed.");
+            }
             return;
         }
 
         await this.#updateGlobalState(terms);
-        vscode.window.showInformationMessage(`Annotation tag profile installed: ${added} added, ${updated} updated.`);
+        if (options.notify) {
+            vscode.window.showInformationMessage(`Annotation tag profile installed: ${added} added, ${updated} updated.`);
+        }
     }
 
     /**
