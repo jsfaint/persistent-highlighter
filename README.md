@@ -19,7 +19,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Color Selection UI**: Easy-to-use color picker for both built-in and custom colors.
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
 - **Workspace Match Navigator**: Expand highlight rules in the sidebar to see current-workspace match counts and jump to exact match locations.
-- **Annotation Tag Profile**: Install high-contrast, bold highlights for common code-note tags such as TODO, FIXME, NOTE, BUG, HACK, WARN, WARNING, REVIEW, OPTIMIZE, XXX, and DEPRECATED.
+- **Annotation Tag Profile**: Install high-contrast, bold highlights with distinct semantic colors for common code-note tags such as TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED:.
 - **Rule Scope Control**: Limit highlights to the current workspace, file, or language.
 - **Per-Rule Settings**: Toggle enable state, case sensitivity, and match mode for each highlight rule.
 - **Regex Rule Validation**: Prevents invalid regex patterns from being saved when editing existing regex rules.
@@ -105,9 +105,9 @@ You can now access highlighting operations directly from the editor's right-clic
 
 Run `Persistent Highlighter: Install Annotation Tag Profile` to create bold, high-contrast local highlight rules for common code-note tags:
 
-`TODO`, `FIXME`, `NOTE`, `BUG`, `HACK`, `WARN`, `WARNING`, `REVIEW`, `OPTIMIZE`, `XXX`, and `DEPRECATED`.
+`TODO:`, `FIXME:`, `NOTE:`, `BUG:`, `HACK:`, `WARN:`, `WARNING:`, `REVIEW:`, `OPTIMIZE:`, `XXX:`, and `DEPRECATED:`.
 
-The command is safe to run repeatedly. It creates missing rules, re-enables existing equivalent rules when needed, and does not create duplicates.
+The command is safe to run repeatedly. It creates missing rules, upgrades existing bare built-in annotation rules such as `NOTE` to `NOTE:`, re-enables existing equivalent rules when needed, assigns built-in tags distinct high-contrast colors, and does not create duplicates. Extra tags from `persistent-highlighter.annotationTags` keep the exact configured text and use a deterministic fallback color from the annotation palette.
 
 ### Rule Editing
 

@@ -194,15 +194,71 @@ suite('Extension 核心功能测试', () => {
         await manager.installAnnotationTagProfile();
         await manager.installAnnotationTagProfile();
 
-        const todoRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'todo');
+        const todoRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'todo:');
         const securityRule = storedTerms.find((term) => term.text === 'SECURITY');
-        const deprecatedRule = storedTerms.find((term) => term.text === 'DEPRECATED');
+        const deprecatedRule = storedTerms.find((term) => term.text === 'DEPRECATED:');
 
         assert.strictEqual(todoRules.length, 1);
+        assert.strictEqual(todoRules[0].text, 'TODO:');
         assert.strictEqual(todoRules[0].enabled, true);
         assert.strictEqual(todoRules[0].isAnnotationTag, true);
+        assert.strictEqual(todoRules[0].annotationColorId, 0);
         assert.ok(securityRule?.isAnnotationTag);
         assert.ok(deprecatedRule?.isAnnotationTag);
+        assert.strictEqual(deprecatedRule?.annotationColorId, 10);
+    });
+
+    test('HighlightManager: annotation tag profile preserves colon-suffixed custom tags', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration(false),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTags') {
+                    return ['SECURITY:'] as T;
+                }
+                if (section === 'caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            }
+        } as vscode.WorkspaceConfiguration);
+
+        const manager = new HighlightManager(mockContext);
+        await manager.installAnnotationTagProfile();
+
+        assert.ok(storedTerms.some((term) => term.text === 'SECURITY:'));
+        assert.strictEqual(storedTerms.some((term) => term.text === 'SECURITY'), false);
+    });
+
+    test('HighlightManager: annotation tag profile removes existing bare and colon built-in duplicates', async () => {
+        let storedTerms: HighlightedTerm[] = [
+            { id: 'highlight:note', text: 'NOTE', colorId: 2, enabled: false, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global', isAnnotationTag: true },
+            { id: 'highlight:note%3A', text: 'NOTE:', colorId: 4, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global', isAnnotationTag: true }
+        ];
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => createMockConfiguration(false);
+
+        const manager = new HighlightManager(mockContext);
+        await manager.installAnnotationTagProfile();
+        await manager.installAnnotationTagProfile();
+
+        const bareNoteRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'note');
+        const colonNoteRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'note:');
+
+        assert.strictEqual(bareNoteRules.length, 0);
+        assert.strictEqual(colonNoteRules.length, 1);
+        assert.strictEqual(colonNoteRules[0].annotationColorId, 2);
     });
 
     test('createHighlightRegex: 词边界测试 - 完整匹配', () => {
@@ -217,6 +273,15 @@ suite('Extension 核心功能测试', () => {
         const regex = createHighlightRegex('test.txt', false);
         const text = 'test.txt file';
         assert.ok(regex.test(text));
+    });
+
+    test('createHighlightRegex: annotation tags include trailing colon in matches', () => {
+        const regex = createHighlightRegex('NOTE:', false);
+        const text = 'NOTE: check this note';
+        const match = regex.exec(text);
+
+        assert.ok(match);
+        assert.strictEqual(match[0], 'NOTE:');
     });
 
     test('findWholeWord: 大小写敏感查找', () => {

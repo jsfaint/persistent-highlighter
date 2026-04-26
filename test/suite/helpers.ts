@@ -208,7 +208,7 @@ export function setupVSCodeMocks() {
     const mockWindow: MockVSCodeWindow = {
         activeTextEditor: undefined,
         visibleTextEditors: [],
-        createTextEditorDecorationType: () => ({} as vscode.TextEditorDecorationType),
+        createTextEditorDecorationType: () => ({ dispose: () => {} } as vscode.TextEditorDecorationType),
         showInformationMessage: (async () => '') as MockVSCodeWindow['showInformationMessage'],
         showWarningMessage: (async () => '') as MockVSCodeWindow['showWarningMessage'],
         showErrorMessage: (async () => '') as MockVSCodeWindow['showErrorMessage'],

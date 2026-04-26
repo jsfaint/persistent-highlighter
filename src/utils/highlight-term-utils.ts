@@ -4,6 +4,7 @@ import type {
     HighlightScopeType,
     HighlightedTerm
 } from "../types";
+import { annotationTagColorPalette, builtInAnnotationTagColorIds } from "../constants";
 
 const DEFAULT_MATCH_MODE: HighlightMatchMode = "wholeWord";
 const DEFAULT_SCOPE_TYPE: HighlightScopeType = "global";
@@ -24,6 +25,42 @@ function isBooleanOrUndefined(value: unknown): value is boolean | undefined {
     return typeof value === "boolean" || typeof value === "undefined";
 }
 
+export function isValidAnnotationTagColorId(value: unknown): value is number {
+    return Number.isInteger(value)
+        && typeof value === "number"
+        && value >= 0
+        && value < annotationTagColorPalette.length;
+}
+
+export function getAnnotationTagIdentity(text: string): string {
+    return text.trim().replace(/:$/, "").toLocaleUpperCase();
+}
+
+export function isBuiltInAnnotationTagText(text: string): boolean {
+    return typeof builtInAnnotationTagColorIds[getAnnotationTagIdentity(text)] === "number";
+}
+
+function getFallbackAnnotationTagColorId(text: string): number {
+    let hash = 0;
+    for (const character of text.toLocaleUpperCase()) {
+        hash = ((hash << 5) - hash + character.charCodeAt(0)) >>> 0;
+    }
+    return hash % annotationTagColorPalette.length;
+}
+
+export function getAnnotationTagColorId(text: string, annotationColorId?: unknown): number {
+    const builtInColorId = builtInAnnotationTagColorIds[getAnnotationTagIdentity(text)];
+    if (isValidAnnotationTagColorId(builtInColorId)) {
+        return builtInColorId;
+    }
+
+    if (isValidAnnotationTagColorId(annotationColorId)) {
+        return annotationColorId;
+    }
+
+    return getFallbackAnnotationTagColorId(text);
+}
+
 export function getHighlightCaseSensitive(term: HighlightedTerm, defaultCaseSensitive: boolean): boolean {
     return typeof term.caseSensitive === "boolean" ? term.caseSensitive : defaultCaseSensitive;
 }
@@ -35,6 +72,11 @@ export function normalizeHighlightedTerm(term: HighlightedTerm, defaultCaseSensi
         ? term.scopeValue
         : undefined;
 
+    const isAnnotationTag = isBooleanOrUndefined(term.isAnnotationTag) ? term.isAnnotationTag : undefined;
+    const annotationColorId = isAnnotationTag === true
+        ? getAnnotationTagColorId(trimmedText, term.annotationColorId)
+        : undefined;
+
     return {
         ...term,
         id: typeof term.id === "string" && term.id.length > 0 ? term.id : createHighlightId(trimmedText),
@@ -44,7 +86,8 @@ export function normalizeHighlightedTerm(term: HighlightedTerm, defaultCaseSensi
         matchMode: isHighlightMatchMode(term.matchMode) ? term.matchMode : DEFAULT_MATCH_MODE,
         scopeType: normalizedScopeType,
         scopeValue: normalizedScopeType === "global" ? undefined : normalizedScopeValue,
-        isAnnotationTag: isBooleanOrUndefined(term.isAnnotationTag) ? term.isAnnotationTag : undefined
+        isAnnotationTag,
+        annotationColorId
     };
 }
 

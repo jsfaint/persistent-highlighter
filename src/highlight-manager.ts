@@ -22,9 +22,13 @@ import { EditorUtils } from "./utils/editor-utils";
 import { ColorUtils } from "./utils/color-utils";
 import {
     doesHighlightApplyToDocument,
+    getAnnotationTagColorId,
+    getAnnotationTagIdentity,
     getHighlightMatchModeLabel,
     getHighlightScopeLabel,
     highlightedTermsNeedMigration,
+    isBuiltInAnnotationTagText,
+    isValidAnnotationTagColorId,
     normalizeHighlightedTerm,
     normalizeHighlightedTerms
 } from "./utils/highlight-term-utils";
@@ -363,7 +367,7 @@ export class HighlightManager implements vscode.Disposable {
         let updated = 0;
 
         for (const tag of tags) {
-            const existingIndex = terms.findIndex((term) => this.#areEquivalentAnnotationRules(term, tag));
+            let existingIndex = this.#findPreferredAnnotationRuleIndex(terms, tag);
 
             if (existingIndex === -1) {
                 terms.push(this.#createAnnotationTagHighlight(tag));
@@ -372,13 +376,29 @@ export class HighlightManager implements vscode.Disposable {
                 continue;
             }
 
+            for (const duplicateIndex of this.#findDuplicateAnnotationRuleIndexes(terms, tag, existingIndex)) {
+                terms.splice(duplicateIndex, 1);
+                if (duplicateIndex < existingIndex) {
+                    existingIndex--;
+                }
+                changed = true;
+                updated++;
+            }
+
             const existing = terms[existingIndex];
-            if (existing.enabled === false || existing.isAnnotationTag !== true) {
+            const semanticColorId = this.#isBuiltInAnnotationTag(tag) ? getAnnotationTagColorId(tag) : undefined;
+            const needsAnnotationColor = typeof semanticColorId === "number"
+                ? existing.annotationColorId !== semanticColorId
+                : !isValidAnnotationTagColorId(existing.annotationColorId);
+            const needsTextUpgrade = this.#isBuiltInAnnotationTag(tag) && !EditorUtils.textEquals(existing.text, tag, false);
+            if (existing.enabled === false || existing.isAnnotationTag !== true || needsAnnotationColor || needsTextUpgrade) {
                 terms[existingIndex] = normalizeHighlightedTerm(
                     {
                         ...existing,
+                        text: needsTextUpgrade ? tag : existing.text,
                         enabled: true,
-                        isAnnotationTag: true
+                        isAnnotationTag: true,
+                        annotationColorId: needsAnnotationColor ? semanticColorId : existing.annotationColorId
                     },
                     this.#getCaseSensitiveConfig()
                 );
@@ -614,7 +634,8 @@ export class HighlightManager implements vscode.Disposable {
                     colorId: term.colorId,
                     isCustomColor: term.isCustomColor,
                     customColor: term.customColor,
-                    isAnnotationTag: term.isAnnotationTag
+                    isAnnotationTag: term.isAnnotationTag,
+                    annotationColorId: term.annotationColorId
                 });
             }
         }
@@ -990,14 +1011,52 @@ export class HighlightManager implements vscode.Disposable {
                 continue;
             }
 
-            uniqueTags.set(normalizedTag.toLocaleLowerCase(), normalizedTag);
+            const key = this.#isBuiltInAnnotationTag(normalizedTag)
+                ? `builtin:${getAnnotationTagIdentity(normalizedTag)}`
+                : `custom:${normalizedTag.toLocaleLowerCase()}`;
+            if (!uniqueTags.has(key)) {
+                uniqueTags.set(key, normalizedTag);
+            }
         }
 
         return [...uniqueTags.values()];
     }
 
     #areEquivalentAnnotationRules(term: HighlightedTerm, tag: string): boolean {
+        if (this.#isBuiltInAnnotationTag(tag) && this.#isBuiltInAnnotationTag(term.text)) {
+            return getAnnotationTagIdentity(term.text) === getAnnotationTagIdentity(tag);
+        }
+
         return EditorUtils.textEquals(term.text, tag, false);
+    }
+
+    #findPreferredAnnotationRuleIndex(terms: HighlightedTerm[], tag: string): number {
+        const equivalentIndexes = terms.reduce<number[]>((indexes, term, index) => {
+            if (this.#areEquivalentAnnotationRules(term, tag)) {
+                indexes.push(index);
+            }
+            return indexes;
+        }, []);
+
+        return equivalentIndexes.find((index) => EditorUtils.textEquals(terms[index].text, tag, false))
+            ?? equivalentIndexes[0]
+            ?? -1;
+    }
+
+    #findDuplicateAnnotationRuleIndexes(
+        terms: HighlightedTerm[],
+        tag: string,
+        preferredIndex: number
+    ): number[] {
+        return terms
+            .map((term, index) => ({ term, index }))
+            .filter(({ term, index }) => index !== preferredIndex && this.#areEquivalentAnnotationRules(term, tag))
+            .map(({ index }) => index)
+            .sort((left, right) => right - left);
+    }
+
+    #isBuiltInAnnotationTag(text: string): boolean {
+        return isBuiltInAnnotationTagText(text);
     }
 
     #createAnnotationTagHighlight(tag: string): HighlightedTerm {

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { ColorPoolEntry, PresetColor } from "./types";
+import type { AnnotationTagColorDefinition, ColorPoolEntry, PresetColor } from "./types";
 
 /**
  * Global State 存储键名
@@ -7,41 +7,107 @@ import type { ColorPoolEntry, PresetColor } from "./types";
 export const GLOBAL_STATE_KEY = "persistentHighlighterTerms";
 
 export const DEFAULT_ANNOTATION_TAGS = [
-    "TODO",
-    "FIXME",
-    "NOTE",
-    "BUG",
-    "HACK",
-    "WARN",
-    "WARNING",
-    "REVIEW",
-    "OPTIMIZE",
-    "XXX",
-    "DEPRECATED"
+    "TODO:",
+    "FIXME:",
+    "NOTE:",
+    "BUG:",
+    "HACK:",
+    "WARN:",
+    "WARNING:",
+    "REVIEW:",
+    "OPTIMIZE:",
+    "XXX:",
+    "DEPRECATED:"
 ];
 
 export const ANNOTATION_TAG_COLOR_ID = 0;
 
+export const annotationTagColorPalette: AnnotationTagColorDefinition[] = [
+    {
+        light: { backgroundColor: "rgba(255, 214, 10, 0.78)", color: "#111111" },
+        dark: { backgroundColor: "rgba(255, 176, 0, 0.74)", color: "#000000" },
+        borderColor: "rgba(255, 140, 0, 0.9)",
+        overviewRulerColor: "rgba(255, 176, 0, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(255, 92, 92, 0.78)", color: "#111111" },
+        dark: { backgroundColor: "rgba(255, 82, 82, 0.76)", color: "#000000" },
+        borderColor: "rgba(210, 35, 35, 0.9)",
+        overviewRulerColor: "rgba(255, 82, 82, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(64, 196, 255, 0.78)", color: "#07121f" },
+        dark: { backgroundColor: "rgba(64, 196, 255, 0.72)", color: "#000000" },
+        borderColor: "rgba(0, 126, 190, 0.9)",
+        overviewRulerColor: "rgba(64, 196, 255, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(255, 112, 67, 0.78)", color: "#111111" },
+        dark: { backgroundColor: "rgba(255, 112, 67, 0.74)", color: "#000000" },
+        borderColor: "rgba(210, 65, 20, 0.9)",
+        overviewRulerColor: "rgba(255, 112, 67, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(186, 104, 200, 0.78)", color: "#111111" },
+        dark: { backgroundColor: "rgba(206, 147, 216, 0.74)", color: "#000000" },
+        borderColor: "rgba(130, 60, 150, 0.9)",
+        overviewRulerColor: "rgba(206, 147, 216, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(255, 202, 40, 0.78)", color: "#111111" },
+        dark: { backgroundColor: "rgba(255, 202, 40, 0.74)", color: "#000000" },
+        borderColor: "rgba(205, 145, 0, 0.9)",
+        overviewRulerColor: "rgba(255, 202, 40, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(255, 183, 77, 0.78)", color: "#111111" },
+        dark: { backgroundColor: "rgba(255, 183, 77, 0.74)", color: "#000000" },
+        borderColor: "rgba(205, 120, 20, 0.9)",
+        overviewRulerColor: "rgba(255, 183, 77, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(77, 208, 225, 0.78)", color: "#07121f" },
+        dark: { backgroundColor: "rgba(77, 208, 225, 0.72)", color: "#000000" },
+        borderColor: "rgba(0, 130, 150, 0.9)",
+        overviewRulerColor: "rgba(77, 208, 225, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(102, 187, 106, 0.78)", color: "#07121f" },
+        dark: { backgroundColor: "rgba(129, 199, 132, 0.72)", color: "#000000" },
+        borderColor: "rgba(40, 135, 45, 0.9)",
+        overviewRulerColor: "rgba(129, 199, 132, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(224, 64, 251, 0.78)", color: "#111111" },
+        dark: { backgroundColor: "rgba(234, 128, 252, 0.74)", color: "#000000" },
+        borderColor: "rgba(170, 35, 195, 0.9)",
+        overviewRulerColor: "rgba(234, 128, 252, 1)"
+    },
+    {
+        light: { backgroundColor: "rgba(158, 158, 158, 0.82)", color: "#111111" },
+        dark: { backgroundColor: "rgba(189, 189, 189, 0.76)", color: "#000000" },
+        borderColor: "rgba(100, 100, 100, 0.9)",
+        overviewRulerColor: "rgba(189, 189, 189, 1)"
+    }
+];
+
+export const builtInAnnotationTagColorIds: Record<string, number> = {
+    TODO: 0,
+    FIXME: 1,
+    NOTE: 2,
+    BUG: 3,
+    HACK: 4,
+    WARN: 5,
+    WARNING: 6,
+    REVIEW: 7,
+    OPTIMIZE: 8,
+    XXX: 9,
+    DEPRECATED: 10
+};
+
 export const WORKSPACE_MATCH_FILE_LIMIT = 200;
 export const WORKSPACE_MATCH_RESULT_LIMIT = 1000;
 export const WORKSPACE_MATCH_EXCLUDE = "{**/node_modules/**,**/.git/**,**/out/**,**/dist/**,**/build/**}";
-
-export const annotationTagDecorationType = vscode.window.createTextEditorDecorationType({
-    light: {
-        backgroundColor: "rgba(255, 214, 10, 0.75)",
-        color: "#111111",
-        fontWeight: "bold"
-    },
-    dark: {
-        backgroundColor: "rgba(255, 176, 0, 0.70)",
-        color: "#000000",
-        fontWeight: "bold"
-    },
-    border: "1px solid rgba(255, 140, 0, 0.85)",
-    borderRadius: "2px",
-    overviewRulerColor: "rgba(255, 176, 0, 1)",
-    overviewRulerLane: vscode.OverviewRulerLane.Full
-});
 
 /**
  * 默认透明度设置

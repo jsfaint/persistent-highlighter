@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
-import type { HighlightColor, CachedHighlight } from "../types";
-import { annotationTagDecorationType, decorationTypes, colorPool } from "../constants";
+import type { AnnotationTagColorDefinition, HighlightColor, CachedHighlight } from "../types";
+import { annotationTagColorPalette, decorationTypes, colorPool } from "../constants";
+import { getAnnotationTagColorId } from "./highlight-term-utils";
 
 /**
  * 装饰器管理器
@@ -8,6 +9,7 @@ import { annotationTagDecorationType, decorationTypes, colorPool } from "../cons
  */
 export class DecoratorManager {
     private customDecorationTypes = new Map<string, vscode.TextEditorDecorationType>();
+    private annotationTagDecorationTypes = new Map<number, vscode.TextEditorDecorationType>();
 
     /**
      * 清空编辑器中的所有装饰器
@@ -20,7 +22,7 @@ export class DecoratorManager {
     public clearAllEditorDecorations(editor: vscode.TextEditor): void {
         // 清除内置颜色装饰器
         decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
-        editor.setDecorations(annotationTagDecorationType, []);
+        this.annotationTagDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
 
         // 清除自定义颜色装饰器
         this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
@@ -39,15 +41,11 @@ export class DecoratorManager {
     public applyHighlightsToEditor(editor: vscode.TextEditor, highlights: CachedHighlight[]): void {
         this.clearAllEditorDecorations(editor);
 
-        const { colorHighlights, customHighlights } = this.categorizeHighlights(highlights);
+        const { colorHighlights, customHighlights, annotationHighlights } = this.categorizeHighlights(highlights);
 
         this.applyBuiltInDecorations(editor, colorHighlights);
         this.applyCustomDecorations(editor, customHighlights);
-        editor.setDecorations(annotationTagDecorationType, this.getAnnotationTagRanges(highlights));
-    }
-
-    private getAnnotationTagRanges(highlights: CachedHighlight[]): vscode.Range[] {
-        return highlights.flatMap((highlight) => highlight.isAnnotationTag ? highlight.ranges : []);
+        this.applyAnnotationTagDecorations(editor, annotationHighlights);
     }
 
     /**
@@ -61,12 +59,18 @@ export class DecoratorManager {
     private categorizeHighlights(highlights: CachedHighlight[]): {
         colorHighlights: Map<number, vscode.Range[]>;
         customHighlights: Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>;
+        annotationHighlights: Map<number, vscode.Range[]>;
     } {
         const colorHighlights = this.initializeColorHighlightsMap();
         const customHighlights = new Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>();
+        const annotationHighlights = new Map<number, vscode.Range[]>();
 
         for (const highlight of highlights) {
             if (highlight.isAnnotationTag) {
+                const annotationColorId = getAnnotationTagColorId(highlight.text, highlight.annotationColorId);
+                const ranges = annotationHighlights.get(annotationColorId) ?? [];
+                ranges.push(...highlight.ranges);
+                annotationHighlights.set(annotationColorId, ranges);
                 continue;
             }
 
@@ -88,7 +92,7 @@ export class DecoratorManager {
             }
         }
 
-        return { colorHighlights, customHighlights };
+        return { colorHighlights, customHighlights, annotationHighlights };
     }
 
     /**
@@ -165,6 +169,42 @@ export class DecoratorManager {
         });
     }
 
+    private applyAnnotationTagDecorations(
+        editor: vscode.TextEditor,
+        annotationHighlights: Map<number, vscode.Range[]>
+    ): void {
+        annotationHighlights.forEach((ranges, annotationColorId) => {
+            if (!this.annotationTagDecorationTypes.has(annotationColorId)) {
+                const style = annotationTagColorPalette[annotationColorId];
+                if (!style) {
+                    return;
+                }
+                this.annotationTagDecorationTypes.set(
+                    annotationColorId,
+                    this.createAnnotationTagDecorationType(style)
+                );
+            }
+
+            const decorationType = this.annotationTagDecorationTypes.get(annotationColorId);
+            if (decorationType) {
+                editor.setDecorations(decorationType, ranges);
+            }
+        });
+    }
+
+    private createAnnotationTagDecorationType(
+        style: AnnotationTagColorDefinition
+    ): vscode.TextEditorDecorationType {
+        return vscode.window.createTextEditorDecorationType({
+            light: { ...style.light, fontWeight: "bold" },
+            dark: { ...style.dark, fontWeight: "bold" },
+            border: `1px solid ${style.borderColor}`,
+            borderRadius: "2px",
+            overviewRulerColor: style.overviewRulerColor,
+            overviewRulerLane: vscode.OverviewRulerLane.Full
+        });
+    }
+
     /**
      * 创建自定义装饰器类型
      * @param customColor 自定义颜色定义
@@ -227,5 +267,10 @@ export class DecoratorManager {
             decorationType.dispose();
         }
         this.customDecorationTypes.clear();
+
+        for (const decorationType of this.annotationTagDecorationTypes.values()) {
+            decorationType.dispose();
+        }
+        this.annotationTagDecorationTypes.clear();
     }
 }

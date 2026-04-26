@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { HighlightsTreeProvider, HighlightItem } from "./highlightsTreeProvider";
 import { HighlightManager } from "./highlight-manager";
-import { annotationTagDecorationType } from "./constants";
 
 // 保存全局实例用于资源清理
 let highlightManagerInstance: HighlightManager | undefined;
@@ -33,7 +32,6 @@ export function activate(context: vscode.ExtensionContext): void {
     // 将所有订阅添加到上下文
     context.subscriptions.push(
         ...disposables,
-        annotationTagDecorationType,
         treeView,
         highlightManager,
         treeProvider
