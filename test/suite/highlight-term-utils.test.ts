@@ -55,6 +55,20 @@ suite("highlight-term-utils 测试", () => {
         assert.strictEqual(normalized[0].matchMode, "wholeWord");
         assert.strictEqual(normalized[0].scopeType, "global");
         assert.strictEqual(normalized[0].scopeValue, undefined);
+        assert.strictEqual(normalized[0].isAnnotationTag, undefined);
+    });
+
+    test("normalizeHighlightedTerm: 保留有效 annotation tag metadata", () => {
+        const normalized = normalizeHighlightedTerm(
+            {
+                text: "TODO",
+                colorId: 0,
+                isAnnotationTag: true
+            },
+            false
+        );
+
+        assert.strictEqual(normalized.isAnnotationTag, true);
     });
 
     test("doesHighlightApplyToDocument: file 作用域只命中当前文件", () => {

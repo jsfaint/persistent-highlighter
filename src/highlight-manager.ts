@@ -3,12 +3,20 @@ import type { HighlightsTreeProvider } from "./highlightsTreeProvider";
 import type {
     CachedHighlight,
     HighlightColor,
+    HighlightMatchLocation,
     HighlightMatchMode,
     HighlightPosition,
     HighlightScopeType,
     HighlightedTerm
 } from "./types";
-import { GLOBAL_STATE_KEY, colorPool, CUSTOM_COLOR_ID_OFFSET, presetColorPalette } from "./constants";
+import {
+    ANNOTATION_TAG_COLOR_ID,
+    CUSTOM_COLOR_ID_OFFSET,
+    DEFAULT_ANNOTATION_TAGS,
+    GLOBAL_STATE_KEY,
+    colorPool,
+    presetColorPalette
+} from "./constants";
 import { DecoratorManager } from "./utils/decorator-manager";
 import { EditorUtils } from "./utils/editor-utils";
 import { ColorUtils } from "./utils/color-utils";
@@ -68,6 +76,7 @@ export class HighlightManager implements vscode.Disposable {
                 const activeEditor = vscode.window.activeTextEditor;
                 if (activeEditor && event.document === activeEditor.document) {
                     this.#updateDecorations(activeEditor);
+                    this.#refreshSidebar();
                 }
             },
             null,
@@ -87,6 +96,11 @@ export class HighlightManager implements vscode.Disposable {
                 if (event.affectsConfiguration("persistent-highlighter.caseSensitive")) {
                     void this.#migrateStoredTerms();
                     this.#refreshAllEditors();
+                    this.#refreshSidebar();
+                    return;
+                }
+
+                if (event.affectsConfiguration("persistent-highlighter.annotationTags")) {
                     this.#refreshSidebar();
                 }
             },
@@ -336,6 +350,52 @@ export class HighlightManager implements vscode.Disposable {
         this.#refreshAllEditors();
     }
 
+    async installAnnotationTagProfile(): Promise<void> {
+        const tags = this.#getConfiguredAnnotationTags();
+        if (tags.length === 0) {
+            vscode.window.showInformationMessage("No annotation tags are configured.");
+            return;
+        }
+
+        const terms = this.#getTerms();
+        let changed = false;
+        let added = 0;
+        let updated = 0;
+
+        for (const tag of tags) {
+            const existingIndex = terms.findIndex((term) => this.#areEquivalentAnnotationRules(term, tag));
+
+            if (existingIndex === -1) {
+                terms.push(this.#createAnnotationTagHighlight(tag));
+                changed = true;
+                added++;
+                continue;
+            }
+
+            const existing = terms[existingIndex];
+            if (existing.enabled === false || existing.isAnnotationTag !== true) {
+                terms[existingIndex] = normalizeHighlightedTerm(
+                    {
+                        ...existing,
+                        enabled: true,
+                        isAnnotationTag: true
+                    },
+                    this.#getCaseSensitiveConfig()
+                );
+                changed = true;
+                updated++;
+            }
+        }
+
+        if (!changed) {
+            vscode.window.showInformationMessage("Annotation tag profile is already installed.");
+            return;
+        }
+
+        await this.#updateGlobalState(terms);
+        vscode.window.showInformationMessage(`Annotation tag profile installed: ${added} added, ${updated} updated.`);
+    }
+
     /**
      * 添加自定义颜色高亮
      */
@@ -436,6 +496,31 @@ export class HighlightManager implements vscode.Disposable {
         EditorUtils.selectAndRevealRange(editor, firstRange);
     }
 
+    async openMatchLocation(input: unknown): Promise<void> {
+        const match = this.#validateMatchLocation(input);
+        if (!match) {
+            vscode.window.showErrorMessage("Invalid match location provided.");
+            return;
+        }
+
+        try {
+            const uri = vscode.Uri.parse(match.uri);
+            const document = await vscode.workspace.openTextDocument(uri);
+            const editor = await vscode.window.showTextDocument(document, { preview: false });
+            const range = new vscode.Range(
+                match.range.startLine,
+                match.range.startCharacter,
+                match.range.endLine,
+                match.range.endCharacter
+            );
+
+            EditorUtils.selectAndRevealRange(editor, range);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`Unable to open match location: ${message}`);
+        }
+    }
+
     /**
      * 跳转到下一个高亮
      */
@@ -528,7 +613,8 @@ export class HighlightManager implements vscode.Disposable {
                     ranges,
                     colorId: term.colorId,
                     isCustomColor: term.isCustomColor,
-                    customColor: term.customColor
+                    customColor: term.customColor,
+                    isAnnotationTag: term.isAnnotationTag
                 });
             }
         }
@@ -890,6 +976,70 @@ export class HighlightManager implements vscode.Disposable {
     #getTerms(): HighlightedTerm[] {
         const terms = this.#context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
         return normalizeHighlightedTerms(terms, this.#getCaseSensitiveConfig());
+    }
+
+    #getConfiguredAnnotationTags(): string[] {
+        const configuredTags = vscode.workspace
+            .getConfiguration('persistent-highlighter')
+            .get<string[]>('annotationTags', []);
+        const uniqueTags = new Map<string, string>();
+
+        for (const tag of [...DEFAULT_ANNOTATION_TAGS, ...configuredTags]) {
+            const normalizedTag = typeof tag === "string" ? tag.trim() : "";
+            if (normalizedTag.length === 0) {
+                continue;
+            }
+
+            uniqueTags.set(normalizedTag.toLocaleLowerCase(), normalizedTag);
+        }
+
+        return [...uniqueTags.values()];
+    }
+
+    #areEquivalentAnnotationRules(term: HighlightedTerm, tag: string): boolean {
+        return EditorUtils.textEquals(term.text, tag, false);
+    }
+
+    #createAnnotationTagHighlight(tag: string): HighlightedTerm {
+        return normalizeHighlightedTerm(
+            {
+                text: tag,
+                colorId: ANNOTATION_TAG_COLOR_ID,
+                enabled: true,
+                caseSensitive: false,
+                matchMode: "wholeWord",
+                scopeType: "global",
+                isAnnotationTag: true
+            },
+            this.#getCaseSensitiveConfig()
+        );
+    }
+
+    #validateMatchLocation(input: unknown): HighlightMatchLocation | undefined {
+        if (!input || typeof input !== "object") {
+            return undefined;
+        }
+
+        const candidate = input as Partial<HighlightMatchLocation>;
+        const range = candidate.range;
+        if (typeof candidate.uri !== "string" || !range) {
+            return undefined;
+        }
+
+        const values = [range.startLine, range.startCharacter, range.endLine, range.endCharacter];
+        if (!values.every((value) => Number.isInteger(value) && value >= 0)) {
+            return undefined;
+        }
+
+        if (range.endLine < range.startLine) {
+            return undefined;
+        }
+
+        if (range.endLine === range.startLine && range.endCharacter < range.startCharacter) {
+            return undefined;
+        }
+
+        return candidate as HighlightMatchLocation;
     }
 
     /**

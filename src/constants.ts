@@ -6,6 +6,43 @@ import type { ColorPoolEntry, PresetColor } from "./types";
  */
 export const GLOBAL_STATE_KEY = "persistentHighlighterTerms";
 
+export const DEFAULT_ANNOTATION_TAGS = [
+    "TODO",
+    "FIXME",
+    "NOTE",
+    "BUG",
+    "HACK",
+    "WARN",
+    "WARNING",
+    "REVIEW",
+    "OPTIMIZE",
+    "XXX",
+    "DEPRECATED"
+];
+
+export const ANNOTATION_TAG_COLOR_ID = 0;
+
+export const WORKSPACE_MATCH_FILE_LIMIT = 200;
+export const WORKSPACE_MATCH_RESULT_LIMIT = 1000;
+export const WORKSPACE_MATCH_EXCLUDE = "{**/node_modules/**,**/.git/**,**/out/**,**/dist/**,**/build/**}";
+
+export const annotationTagDecorationType = vscode.window.createTextEditorDecorationType({
+    light: {
+        backgroundColor: "rgba(255, 214, 10, 0.75)",
+        color: "#111111",
+        fontWeight: "bold"
+    },
+    dark: {
+        backgroundColor: "rgba(255, 176, 0, 0.70)",
+        color: "#000000",
+        fontWeight: "bold"
+    },
+    border: "1px solid rgba(255, 140, 0, 0.85)",
+    borderRadius: "2px",
+    overviewRulerColor: "rgba(255, 176, 0, 1)",
+    overviewRulerLane: vscode.OverviewRulerLane.Full
+});
+
 /**
  * 默认透明度设置
  */

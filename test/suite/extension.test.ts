@@ -167,6 +167,44 @@ suite('Extension 核心功能测试', () => {
         assert.ok(errorMessage.includes('Invalid regular expression'));
     });
 
+    test('HighlightManager: annotation tag profile adds built-ins and custom tags without duplicates', async () => {
+        let storedTerms: HighlightedTerm[] = [
+            { id: 'highlight:todo', text: 'todo', colorId: 2, enabled: false, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' }
+        ];
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration(false),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTags') {
+                    return ['SECURITY', 'todo'] as T;
+                }
+                if (section === 'caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            }
+        } as vscode.WorkspaceConfiguration);
+
+        const manager = new HighlightManager(mockContext);
+        await manager.installAnnotationTagProfile();
+        await manager.installAnnotationTagProfile();
+
+        const todoRules = storedTerms.filter((term) => term.text.toLocaleLowerCase() === 'todo');
+        const securityRule = storedTerms.find((term) => term.text === 'SECURITY');
+        const deprecatedRule = storedTerms.find((term) => term.text === 'DEPRECATED');
+
+        assert.strictEqual(todoRules.length, 1);
+        assert.strictEqual(todoRules[0].enabled, true);
+        assert.strictEqual(todoRules[0].isAnnotationTag, true);
+        assert.ok(securityRule?.isAnnotationTag);
+        assert.ok(deprecatedRule?.isAnnotationTag);
+    });
+
     test('createHighlightRegex: 词边界测试 - 完整匹配', () => {
         const text = 'test testing';
         const regex = createHighlightRegex('test', false);

@@ -18,6 +18,8 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Custom Color Support**: Use any hex color code for personalized highlighting.
 - **Color Selection UI**: Easy-to-use color picker for both built-in and custom colors.
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
+- **Workspace Match Navigator**: Expand highlight rules in the sidebar to see current-workspace match counts and jump to exact match locations.
+- **Annotation Tag Profile**: Install high-contrast, bold highlights for common code-note tags such as TODO, FIXME, NOTE, BUG, HACK, WARN, WARNING, REVIEW, OPTIMIZE, XXX, and DEPRECATED.
 - **Rule Scope Control**: Limit highlights to the current workspace, file, or language.
 - **Per-Rule Settings**: Toggle enable state, case sensitivity, and match mode for each highlight rule.
 - **Regex Rule Validation**: Prevents invalid regex patterns from being saved when editing existing regex rules.
@@ -40,6 +42,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - `Persistent Highlighter: Refresh`: Refresh the highlights tree view.
 - `Persistent Highlighter: Jump to Highlight`: Navigate to a specific highlight in the current file.
 - `Persistent Highlighter: Edit Highlight Rule`: Modify the text, scope, enabled state, case sensitivity, or match mode of an existing highlight.
+- `Persistent Highlighter: Install Annotation Tag Profile`: Create or enable the built-in annotation tag rules without duplicating existing equivalent rules.
 
 ## Installation
 
@@ -91,11 +94,20 @@ You can now access highlighting operations directly from the editor's right-clic
 1. Open the Explorer sidebar (`Ctrl+Shift+E`).
 2. Find the "Highlights" section at the bottom.
 3. Use the tree view to:
-   - See the highlight rules that currently apply to the active file
-   - Jump to specific highlights
+   - See highlight rules with active-file and current-workspace match counts
+   - Expand a rule to list current-workspace match locations
+   - Click a match location to open the file and reveal the exact range
    - Edit highlight rules
    - Remove individual highlights
    - Clear all highlights at once
+
+### Annotation Tag Profile
+
+Run `Persistent Highlighter: Install Annotation Tag Profile` to create bold, high-contrast local highlight rules for common code-note tags:
+
+`TODO`, `FIXME`, `NOTE`, `BUG`, `HACK`, `WARN`, `WARNING`, `REVIEW`, `OPTIMIZE`, `XXX`, and `DEPRECATED`.
+
+The command is safe to run repeatedly. It creates missing rules, re-enables existing equivalent rules when needed, and does not create duplicates.
 
 ### Rule Editing
 
@@ -119,6 +131,7 @@ The extension provides several configuration options to customize behavior:
 ### Search Settings
 
 - `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for highlights (default: false)
+- `persistent-highlighter.annotationTags`: Additional annotation tags to include when installing the built-in annotation tag profile (default: `[]`)
 
 ### Context Menu Settings
 

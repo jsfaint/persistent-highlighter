@@ -29,12 +29,16 @@ export interface MockVSCodeWindow {
     showErrorMessage: typeof vscode.window.showErrorMessage;
     showQuickPick: typeof vscode.window.showQuickPick;
     showInputBox: typeof vscode.window.showInputBox;
+    showTextDocument: typeof vscode.window.showTextDocument;
     onDidChangeActiveTextEditor: typeof vscode.window.onDidChangeActiveTextEditor;
 }
 
 export interface MockVSCodeWorkspace {
     getConfiguration: typeof vscode.workspace.getConfiguration;
     getWorkspaceFolder: typeof vscode.workspace.getWorkspaceFolder;
+    workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined;
+    findFiles: typeof vscode.workspace.findFiles;
+    openTextDocument: typeof vscode.workspace.openTextDocument;
     onDidChangeTextDocument: typeof vscode.workspace.onDidChangeTextDocument;
     onDidCloseTextDocument: typeof vscode.workspace.onDidCloseTextDocument;
     onDidChangeConfiguration: typeof vscode.workspace.onDidChangeConfiguration;
@@ -117,7 +121,18 @@ export function createMockDocument(content: string, uri?: string): vscode.TextDo
             return offset + position.character;
         },
         getWordRangeAtPosition: () => undefined,
-        lineAt: () => ({} as vscode.TextLine),
+        lineAt: (lineOrPosition: number | vscode.Position) => {
+            const lineNumber = typeof lineOrPosition === 'number' ? lineOrPosition : lineOrPosition.line;
+            const lineText = content.split('\n')[lineNumber] ?? '';
+            return {
+                lineNumber,
+                text: lineText,
+                range: new vscode.Range(lineNumber, 0, lineNumber, lineText.length),
+                rangeIncludingLineBreak: new vscode.Range(lineNumber, 0, lineNumber, lineText.length),
+                firstNonWhitespaceCharacterIndex: lineText.search(/\S|$/),
+                isEmptyOrWhitespace: lineText.trim().length === 0
+            } as vscode.TextLine;
+        },
         save: () => Promise.resolve(true)
     };
     return mockDocument as unknown as vscode.TextDocument;
@@ -199,17 +214,23 @@ export function setupVSCodeMocks() {
         showErrorMessage: (async () => '') as MockVSCodeWindow['showErrorMessage'],
         showQuickPick: (async () => undefined) as MockVSCodeWindow['showQuickPick'],
         showInputBox: (async () => undefined) as MockVSCodeWindow['showInputBox'],
+        showTextDocument: (async (document: vscode.TextDocument) => createMockEditor(document)) as unknown as MockVSCodeWindow['showTextDocument'],
         onDidChangeActiveTextEditor: () => ({ dispose: () => {} })
+    };
+
+    const workspaceFolder = {
+        uri: vscode.Uri.parse('file:///mock'),
+        name: 'mock',
+        index: 0
     };
 
     // Mock vscode.workspace
     const mockWorkspace: MockVSCodeWorkspace = {
         getConfiguration: () => createMockConfiguration(),
-        getWorkspaceFolder: () => ({
-            uri: vscode.Uri.parse('file:///mock'),
-            name: 'mock',
-            index: 0
-        }),
+        getWorkspaceFolder: () => workspaceFolder,
+        workspaceFolders: [workspaceFolder],
+        findFiles: (async () => [vscode.Uri.parse('file:///mock/document.txt')]) as MockVSCodeWorkspace['findFiles'],
+        openTextDocument: (async () => createMockDocument('This is a test document with highlight and code inside.\nThe test should work correctly.', 'file:///mock/document.txt')) as MockVSCodeWorkspace['openTextDocument'],
         onDidChangeTextDocument: () => ({ dispose: () => {} }),
         onDidCloseTextDocument: () => ({ dispose: () => {} }),
         onDidChangeConfiguration: () => ({ dispose: () => {} })

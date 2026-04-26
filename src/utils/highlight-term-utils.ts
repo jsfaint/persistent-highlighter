@@ -20,6 +20,10 @@ function isHighlightScopeType(value: unknown): value is HighlightScopeType {
     return value === "global" || value === "workspace" || value === "file" || value === "language";
 }
 
+function isBooleanOrUndefined(value: unknown): value is boolean | undefined {
+    return typeof value === "boolean" || typeof value === "undefined";
+}
+
 export function getHighlightCaseSensitive(term: HighlightedTerm, defaultCaseSensitive: boolean): boolean {
     return typeof term.caseSensitive === "boolean" ? term.caseSensitive : defaultCaseSensitive;
 }
@@ -39,7 +43,8 @@ export function normalizeHighlightedTerm(term: HighlightedTerm, defaultCaseSensi
         caseSensitive: getHighlightCaseSensitive(term, defaultCaseSensitive),
         matchMode: isHighlightMatchMode(term.matchMode) ? term.matchMode : DEFAULT_MATCH_MODE,
         scopeType: normalizedScopeType,
-        scopeValue: normalizedScopeType === "global" ? undefined : normalizedScopeValue
+        scopeValue: normalizedScopeType === "global" ? undefined : normalizedScopeValue,
+        isAnnotationTag: isBooleanOrUndefined(term.isAnnotationTag) ? term.isAnnotationTag : undefined
     };
 }
 

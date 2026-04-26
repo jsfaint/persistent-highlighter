@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { HighlightColor, CachedHighlight } from "../types";
-import { decorationTypes, colorPool } from "../constants";
+import { annotationTagDecorationType, decorationTypes, colorPool } from "../constants";
 
 /**
  * 装饰器管理器
@@ -20,6 +20,7 @@ export class DecoratorManager {
     public clearAllEditorDecorations(editor: vscode.TextEditor): void {
         // 清除内置颜色装饰器
         decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+        editor.setDecorations(annotationTagDecorationType, []);
 
         // 清除自定义颜色装饰器
         this.customDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
@@ -42,6 +43,11 @@ export class DecoratorManager {
 
         this.applyBuiltInDecorations(editor, colorHighlights);
         this.applyCustomDecorations(editor, customHighlights);
+        editor.setDecorations(annotationTagDecorationType, this.getAnnotationTagRanges(highlights));
+    }
+
+    private getAnnotationTagRanges(highlights: CachedHighlight[]): vscode.Range[] {
+        return highlights.flatMap((highlight) => highlight.isAnnotationTag ? highlight.ranges : []);
     }
 
     /**
@@ -60,6 +66,10 @@ export class DecoratorManager {
         const customHighlights = new Map<string, { ranges: vscode.Range[]; highlight: CachedHighlight }>();
 
         for (const highlight of highlights) {
+            if (highlight.isAnnotationTag) {
+                continue;
+            }
+
             if (highlight.isCustomColor && highlight.customColor) {
                 const colorKey = this.getCustomColorKey(highlight.text, highlight.customColor);
                 if (colorKey) {

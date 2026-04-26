@@ -201,6 +201,21 @@ suite("DecoratorManager Suite", () => {
         assert.ok(result.customHighlights.size > 0, "应该有自定义颜色");
     });
 
+    test("annotation tag highlights should use the dedicated decoration", () => {
+        const highlights: CachedHighlight[] = [
+            {
+                text: "TODO",
+                ranges: [new vscode.Range(0, 0, 0, 4)],
+                colorId: 0,
+                isAnnotationTag: true
+            }
+        ];
+
+        decoratorManager.applyHighlightsToEditor(textEditor, highlights);
+
+        assert.strictEqual(mockEditor.decorations.size, 1, "应该只应用 annotation tag 装饰器");
+    });
+
     test("getCustomColorKey 应该为相同文本和颜色生成相同的键", () => {
         const customColor: ColorDefinition = {
             light: { backgroundColor: "rgba(255, 0, 0, 0.5)" },

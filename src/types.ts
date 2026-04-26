@@ -43,6 +43,7 @@ export interface HighlightedTerm {
     scopeValue?: string;
     isCustomColor?: boolean;
     customColor?: HighlightColor;
+    isAnnotationTag?: boolean;
 }
 
 /**
@@ -63,6 +64,25 @@ export interface CachedHighlight {
     colorId: number;
     isCustomColor?: boolean;
     customColor?: HighlightColor;
+    isAnnotationTag?: boolean;
+}
+
+export interface SerializedRange {
+    startLine: number;
+    startCharacter: number;
+    endLine: number;
+    endCharacter: number;
+}
+
+export interface HighlightMatchLocation {
+    ruleId: string;
+    text: string;
+    uri: string;
+    fileName: string;
+    line: number;
+    character: number;
+    preview: string;
+    range: SerializedRange;
 }
 
 /**

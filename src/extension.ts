@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { HighlightsTreeProvider, HighlightItem } from "./highlightsTreeProvider";
 import { HighlightManager } from "./highlight-manager";
+import { annotationTagDecorationType } from "./constants";
 
 // 保存全局实例用于资源清理
 let highlightManagerInstance: HighlightManager | undefined;
@@ -32,6 +33,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // 将所有订阅添加到上下文
     context.subscriptions.push(
         ...disposables,
+        annotationTagDecorationType,
         treeView,
         highlightManager,
         treeProvider
@@ -51,7 +53,9 @@ function getCommandConfig(highlightManager: HighlightManager, treeProvider: High
         { command: "persistent-highlighter.toggleHighlight", callback: () => highlightManager.toggleHighlight() },
         { command: "persistent-highlighter.clearAllHighlights", callback: () => highlightManager.clearAllHighlights() },
         { command: "persistent-highlighter.addHighlightWithCustomColor", callback: () => highlightManager.addHighlightWithCustomColor() },
+        { command: "persistent-highlighter.installAnnotationTagProfile", callback: () => highlightManager.installAnnotationTagProfile() },
         { command: "persistent-highlighter.jumpToHighlight", callback: (text: unknown) => highlightManager.jumpToHighlight(text as string) },
+        { command: "persistent-highlighter.openMatchLocation", callback: (match: unknown) => highlightManager.openMatchLocation(match) },
         { command: "persistent-highlighter.jumpToNextHighlight", callback: () => highlightManager.jumpToNextHighlight() },
         { command: "persistent-highlighter.jumpToPrevHighlight", callback: () => highlightManager.jumpToPrevHighlight() },
         { command: "persistent-highlighter.refreshTree", callback: () => treeProvider.refresh() },

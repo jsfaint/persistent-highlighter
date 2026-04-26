@@ -137,6 +137,53 @@ suite('HighlightsTreeProvider 测试', () => {
         }
     });
 
+    test('HighlightsTreeProvider: rule items include active file and workspace match counts', async () => {
+        const children = await treeProvider.getChildren();
+        const testItem = children.find((child) => child instanceof HighlightItem && child.text === 'test') as HighlightItem | undefined;
+
+        assert.ok(testItem);
+        assert.ok(testItem.description?.toString().includes('2 in file'));
+        assert.ok(testItem.description?.toString().includes('2 in workspace'));
+    });
+
+    test('HighlightsTreeProvider: rule items expose match location children', async () => {
+        const children = await treeProvider.getChildren();
+        const testItem = children.find((child) => child instanceof HighlightItem && child.text === 'test') as HighlightItem | undefined;
+
+        assert.ok(testItem);
+        const matchChildren = await treeProvider.getChildren(testItem);
+
+        assert.ok(matchChildren.length > 0);
+        assert.ok(matchChildren[0].command);
+        assert.strictEqual(matchChildren[0].contextValue, 'highlightMatchLocation');
+    });
+
+    test('HighlightsTreeProvider: workspace-only matches are shown even when active file does not match the rule scope', async () => {
+        await mockContext.globalState.update('persistentHighlighterTerms', [
+            {
+                id: 'highlight:workspace-test',
+                text: 'test',
+                colorId: 0,
+                enabled: true,
+                caseSensitive: false,
+                matchMode: 'wholeWord',
+                scopeType: 'file',
+                scopeValue: 'file:///mock/document.txt'
+            }
+        ]);
+        const activeDocument = createMockDocument('This active file does not contain the term.', 'file:///mock/active.txt');
+        getMockVSCodeWindow().activeTextEditor = createMockEditor(activeDocument);
+
+        const provider = new HighlightsTreeProvider(mockContext);
+        const children = await provider.getChildren();
+        const testItem = children.find((child) => child instanceof HighlightItem && child.text === 'test') as HighlightItem | undefined;
+
+        assert.ok(testItem);
+        assert.ok(testItem.description?.toString().includes('0 in file'));
+        assert.ok(testItem.description?.toString().includes('2 in workspace'));
+        provider.dispose();
+    });
+
     test('HighlightsTreeProvider: refresh 方法', () => {
         // refresh 方法不应该抛出错误
         assert.doesNotThrow(() => {
