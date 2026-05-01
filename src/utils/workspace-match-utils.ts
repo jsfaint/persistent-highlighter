@@ -3,6 +3,8 @@ import { spawn } from "child_process";
 import * as vscode from "vscode";
 import {
     WORKSPACE_MATCH_EXCLUDE,
+    WORKSPACE_MATCH_EXCLUDE_GLOBS,
+    WORKSPACE_MATCH_EXCLUDED_FILE_EXTENSIONS,
     WORKSPACE_MATCH_FILE_LIMIT,
     WORKSPACE_MATCH_RESULT_LIMIT
 } from "../constants";
@@ -11,13 +13,7 @@ import { doesHighlightApplyToDocument } from "./highlight-term-utils";
 import { EditorUtils } from "./editor-utils";
 
 const RIPGREP_TIMEOUT_MS = 5000;
-const RIPGREP_EXCLUDE_GLOBS = [
-    "!**/node_modules/**",
-    "!**/.git/**",
-    "!**/out/**",
-    "!**/dist/**",
-    "!**/build/**"
-];
+const WORKSPACE_MATCH_EXCLUDED_FILE_EXTENSION_SET = new Set(WORKSPACE_MATCH_EXCLUDED_FILE_EXTENSIONS);
 
 export type RipgrepCandidateResult =
     | { readonly kind: "success"; readonly uris: vscode.Uri[] }
@@ -64,14 +60,15 @@ export class WorkspaceMatchUtils {
     ): Promise<vscode.Uri[]> {
         const ripgrepResult = await this.findCandidateFilesWithRipgrep(term, workspaceFolder, defaultCaseSensitive);
         if (ripgrepResult.kind === "success") {
-            return ripgrepResult.uris;
+            return this.filterExcludedWorkspaceSearchFiles(ripgrepResult.uris);
         }
 
-        return vscode.workspace.findFiles(
+        const files = await vscode.workspace.findFiles(
             new vscode.RelativePattern(workspaceFolder, "**/*"),
             WORKSPACE_MATCH_EXCLUDE,
             WORKSPACE_MATCH_FILE_LIMIT
         );
+        return this.filterExcludedWorkspaceSearchFiles(files);
     }
 
     private static async findMatchesInFiles(
@@ -85,6 +82,10 @@ export class WorkspaceMatchUtils {
         for (const uri of files) {
             if (matches.length >= WORKSPACE_MATCH_RESULT_LIMIT) {
                 break;
+            }
+
+            if (this.isExcludedWorkspaceSearchFile(uri)) {
+                continue;
             }
 
             try {
@@ -135,18 +136,12 @@ export class WorkspaceMatchUtils {
             "--files-with-matches",
             "--fixed-strings",
             "--color",
-            "never",
-            "--glob",
-            RIPGREP_EXCLUDE_GLOBS[0],
-            "--glob",
-            RIPGREP_EXCLUDE_GLOBS[1],
-            "--glob",
-            RIPGREP_EXCLUDE_GLOBS[2],
-            "--glob",
-            RIPGREP_EXCLUDE_GLOBS[3],
-            "--glob",
-            RIPGREP_EXCLUDE_GLOBS[4]
+            "never"
         ];
+
+        for (const glob of WORKSPACE_MATCH_EXCLUDE_GLOBS) {
+            args.push("--glob", `!${glob}`);
+        }
 
         if (!caseSensitive) {
             args.push("--ignore-case");
@@ -223,6 +218,15 @@ export class WorkspaceMatchUtils {
         }
 
         return uris;
+    }
+
+    private static isExcludedWorkspaceSearchFile(uri: vscode.Uri): boolean {
+        const extension = path.extname(uri.fsPath || uri.path).slice(1).toLowerCase();
+        return WORKSPACE_MATCH_EXCLUDED_FILE_EXTENSION_SET.has(extension);
+    }
+
+    private static filterExcludedWorkspaceSearchFiles(files: vscode.Uri[]): vscode.Uri[] {
+        return files.filter((uri) => !this.isExcludedWorkspaceSearchFile(uri));
     }
 
     public static createMatchLocation(

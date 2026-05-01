@@ -107,7 +107,69 @@ export const builtInAnnotationTagColorIds: Record<string, number> = {
 
 export const WORKSPACE_MATCH_FILE_LIMIT = 200;
 export const WORKSPACE_MATCH_RESULT_LIMIT = 1000;
-export const WORKSPACE_MATCH_EXCLUDE = "{**/node_modules/**,**/.git/**,**/out/**,**/dist/**,**/build/**}";
+export const WORKSPACE_MATCH_EXCLUDED_DIRECTORIES = [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/out/**",
+    "**/dist/**",
+    "**/build/**"
+];
+export const WORKSPACE_MATCH_EXCLUDED_FILE_EXTENSIONS = [
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "odt",
+    "ods",
+    "odp",
+    "rtf",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "ico",
+    "tiff",
+    "svgz",
+    "mp3",
+    "wav",
+    "mp4",
+    "mov",
+    "avi",
+    "mkv",
+    "webm",
+    "zip",
+    "tar",
+    "gz",
+    "tgz",
+    "rar",
+    "7z",
+    "xz",
+    "bz2",
+    "exe",
+    "dll",
+    "so",
+    "dylib",
+    "bin",
+    "class",
+    "jar",
+    "wasm",
+    "ttf",
+    "otf",
+    "woff",
+    "woff2",
+    "sqlite",
+    "db"
+];
+export const WORKSPACE_MATCH_EXCLUDE_GLOBS = [
+    ...WORKSPACE_MATCH_EXCLUDED_DIRECTORIES,
+    ...WORKSPACE_MATCH_EXCLUDED_FILE_EXTENSIONS.map((extension) => `**/*.${extension}`)
+];
+export const WORKSPACE_MATCH_EXCLUDE = `{${WORKSPACE_MATCH_EXCLUDE_GLOBS.join(",")}}`;
 
 /**
  * 默认透明度设置

@@ -112,6 +112,8 @@ If no editor is active, the sidebar uses the first workspace folder as the works
 
 For best performance, Persistent Highlighter uses the system `rg`/ripgrep command when it is available. `rg` is only used to find candidate files quickly; final match ranges are still computed by the extension so existing whole-word, substring, CJK, underscore, and annotation tag matching behavior stays consistent.
 
+Workspace searches skip common binary and non-directly-editable file types, such as PDF, Office documents, archives, media, executables, fonts, and database files. Plain `.svg` files remain searchable, while compressed `.svgz` files are skipped.
+
 If `rg` is missing, times out, errors, or cannot be used for the current workspace or rule type, the extension automatically falls back to the built-in VS Code scan path.
 
 The extension does not install or bundle ripgrep. Install it yourself for faster workspace match discovery:
@@ -201,6 +203,7 @@ The extension offers 18 carefully selected preset colors:
   - Added current-workspace match counts in the Highlights sidebar
   - Added expandable match location rows that open files and reveal exact ranges
   - Uses system `rg` when available to speed up workspace candidate discovery, with a safe VS Code scan fallback
+  - Skips common binary and non-directly-editable file types during workspace searches
 - **Annotation Tag Profile**:
   - Automatically synchronizes common code-note tags on activation and configuration changes
   - Built-in tags match the trailing colon, such as `TODO:` and `NOTE:`
