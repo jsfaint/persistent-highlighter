@@ -40,6 +40,10 @@ export function isBuiltInAnnotationTagText(text: string): boolean {
     return typeof builtInAnnotationTagColorIds[getAnnotationTagIdentity(text)] === "number";
 }
 
+function isBuiltInAnnotationTagTerm(term: HighlightedTerm, text: string): boolean {
+    return term.isAnnotationTag === true && isBuiltInAnnotationTagText(text);
+}
+
 function getFallbackAnnotationTagColorId(text: string): number {
     let hash = 0;
     for (const character of text.toLocaleUpperCase()) {
@@ -62,7 +66,19 @@ export function getAnnotationTagColorId(text: string, annotationColorId?: unknow
 }
 
 export function getHighlightCaseSensitive(term: HighlightedTerm, defaultCaseSensitive: boolean): boolean {
+    if (isBuiltInAnnotationTagTerm(term, term.text)) {
+        return true;
+    }
+
     return typeof term.caseSensitive === "boolean" ? term.caseSensitive : defaultCaseSensitive;
+}
+
+export function getHighlightMatchMode(term: HighlightedTerm): HighlightMatchMode {
+    if (isBuiltInAnnotationTagTerm(term, term.text)) {
+        return DEFAULT_MATCH_MODE;
+    }
+
+    return isHighlightMatchMode(term.matchMode) ? term.matchMode : DEFAULT_MATCH_MODE;
 }
 
 export function normalizeHighlightedTerm(term: HighlightedTerm, defaultCaseSensitive: boolean): HighlightedTerm {
@@ -76,14 +92,15 @@ export function normalizeHighlightedTerm(term: HighlightedTerm, defaultCaseSensi
     const annotationColorId = isAnnotationTag === true
         ? getAnnotationTagColorId(trimmedText, term.annotationColorId)
         : undefined;
+    const isBuiltInAnnotationTag = isAnnotationTag === true && isBuiltInAnnotationTagText(trimmedText);
 
     return {
         ...term,
         id: typeof term.id === "string" && term.id.length > 0 ? term.id : createHighlightId(trimmedText),
         text: trimmedText,
         enabled: term.enabled ?? true,
-        caseSensitive: getHighlightCaseSensitive(term, defaultCaseSensitive),
-        matchMode: isHighlightMatchMode(term.matchMode) ? term.matchMode : DEFAULT_MATCH_MODE,
+        caseSensitive: isBuiltInAnnotationTag ? true : getHighlightCaseSensitive(term, defaultCaseSensitive),
+        matchMode: getHighlightMatchMode(term),
         scopeType: normalizedScopeType,
         scopeValue: normalizedScopeType === "global" ? undefined : normalizedScopeValue,
         isAnnotationTag,

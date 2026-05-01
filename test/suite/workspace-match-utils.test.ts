@@ -54,6 +54,78 @@ suite('WorkspaceMatchUtils tests', () => {
         assert.strictEqual(matches[0].fileName, 'src/candidate.ts');
     });
 
+    test('matches built-in annotation tags case-sensitively when default is insensitive', async () => {
+        const candidateUri = vscode.Uri.parse('file:///mock/src/candidate.ts');
+        getMockVSCodeWorkspace().openTextDocument = (async () =>
+            createMockDocument('todo: lower\nTODO: upper', candidateUri.toString())) as typeof vscode.workspace.openTextDocument;
+        WorkspaceMatchUtils.setRipgrepCandidateProviderForTests(async () => ({
+            kind: 'success',
+            uris: [candidateUri]
+        }));
+
+        const matches = await WorkspaceMatchUtils.findMatchesForTerm(
+            { ...createTerm('TODO:'), isAnnotationTag: true, caseSensitive: false },
+            workspaceFolder,
+            false
+        );
+
+        assert.strictEqual(matches.length, 1);
+        assert.strictEqual(matches[0].preview, 'TODO: upper');
+    });
+
+    test('forces built-in annotation tags to whole-word workspace matching before migration', async () => {
+        const candidateUri = vscode.Uri.parse('file:///mock/src/candidate.ts');
+        let rgProviderCalls = 0;
+        getMockVSCodeWorkspace().openTextDocument = (async () =>
+            createMockDocument('TODOGRAPH prefix\nTODO exact', candidateUri.toString())) as typeof vscode.workspace.openTextDocument;
+        WorkspaceMatchUtils.setRipgrepCandidateProviderForTests(async () => {
+            rgProviderCalls++;
+            return {
+                kind: 'success',
+                uris: [candidateUri]
+            };
+        });
+
+        const matches = await WorkspaceMatchUtils.findMatchesForTerm(
+            { ...createTerm('TODO'), isAnnotationTag: true, caseSensitive: false, matchMode: 'substring' },
+            workspaceFolder,
+            false
+        );
+
+        assert.strictEqual(rgProviderCalls, 1);
+        assert.strictEqual(matches.length, 1);
+        assert.strictEqual(matches[0].preview, 'TODO exact');
+    });
+
+    test('uses rg candidates for built-in annotation tags stored with regex mode before migration', async () => {
+        const candidateUri = vscode.Uri.parse('file:///mock/src/candidate.ts');
+        let findFilesCalls = 0;
+        let rgProviderCalls = 0;
+        getMockVSCodeWorkspace().findFiles = (async () => {
+            findFilesCalls++;
+            return [];
+        }) as typeof vscode.workspace.findFiles;
+        getMockVSCodeWorkspace().openTextDocument = (async () =>
+            createMockDocument('TODO: exact', candidateUri.toString())) as typeof vscode.workspace.openTextDocument;
+        WorkspaceMatchUtils.setRipgrepCandidateProviderForTests(async () => {
+            rgProviderCalls++;
+            return {
+                kind: 'success',
+                uris: [candidateUri]
+            };
+        });
+
+        const matches = await WorkspaceMatchUtils.findMatchesForTerm(
+            { ...createTerm('TODO:'), isAnnotationTag: true, caseSensitive: false, matchMode: 'regex' },
+            workspaceFolder,
+            false
+        );
+
+        assert.strictEqual(rgProviderCalls, 1);
+        assert.strictEqual(findFilesCalls, 0);
+        assert.strictEqual(matches.length, 1);
+    });
+
     test('skips excluded rg candidate files before opening documents', async () => {
         const candidateUri = vscode.Uri.parse('file:///mock/src/candidate.ts');
         const pdfUri = vscode.Uri.parse('file:///mock/docs/manual.pdf');

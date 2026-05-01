@@ -9,7 +9,7 @@ import {
     WORKSPACE_MATCH_RESULT_LIMIT
 } from "../constants";
 import type { HighlightMatchLocation, HighlightedTerm } from "../types";
-import { doesHighlightApplyToDocument } from "./highlight-term-utils";
+import { doesHighlightApplyToDocument, getHighlightCaseSensitive, getHighlightMatchMode } from "./highlight-term-utils";
 import { EditorUtils } from "./editor-utils";
 
 const RIPGREP_TIMEOUT_MS = 5000;
@@ -115,7 +115,7 @@ export class WorkspaceMatchUtils {
         workspaceFolder: vscode.WorkspaceFolder,
         defaultCaseSensitive: boolean
     ): Promise<RipgrepCandidateResult> {
-        if (workspaceFolder.uri.scheme !== "file" || term.matchMode === "regex") {
+        if (workspaceFolder.uri.scheme !== "file" || getHighlightMatchMode(term) === "regex") {
             return { kind: "fallback" };
         }
 
@@ -131,7 +131,7 @@ export class WorkspaceMatchUtils {
         workspaceFolder: vscode.WorkspaceFolder,
         defaultCaseSensitive: boolean
     ): Promise<RipgrepCandidateResult> {
-        const caseSensitive = term.caseSensitive ?? defaultCaseSensitive;
+        const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
         const args = [
             "--files-with-matches",
             "--fixed-strings",

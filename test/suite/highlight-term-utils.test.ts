@@ -3,6 +3,8 @@ import * as vscode from "vscode";
 import {
     doesHighlightApplyToDocument,
     getAnnotationTagColorId,
+    getHighlightCaseSensitive,
+    getHighlightMatchMode,
     normalizeHighlightedTerm,
     normalizeHighlightedTerms
 } from "../../src/utils/highlight-term-utils";
@@ -97,6 +99,39 @@ suite("highlight-term-utils 测试", () => {
 
         assert.strictEqual(todo.annotationColorId, 0);
         assert.strictEqual(fixme.annotationColorId, 1);
+    });
+
+    test("normalizeHighlightedTerm: forces built-in annotation matching options", () => {
+        const storedTerm: HighlightedTerm = {
+            text: "TODO:",
+            colorId: 0,
+            isAnnotationTag: true,
+            caseSensitive: false,
+            matchMode: "regex"
+        };
+        const normalized = normalizeHighlightedTerm(storedTerm, false);
+
+        assert.strictEqual(normalized.caseSensitive, true);
+        assert.strictEqual(normalized.matchMode, "wholeWord");
+        assert.strictEqual(getHighlightCaseSensitive(storedTerm, false), true);
+        assert.strictEqual(getHighlightMatchMode(storedTerm), "wholeWord");
+    });
+
+    test("normalizeHighlightedTerm: preserves custom annotation matching options", () => {
+        const normalized = normalizeHighlightedTerm(
+            {
+                text: "SECURITY",
+                colorId: 0,
+                isAnnotationTag: true,
+                caseSensitive: false,
+                matchMode: "substring"
+            },
+            true
+        );
+
+        assert.strictEqual(normalized.caseSensitive, false);
+        assert.strictEqual(normalized.matchMode, "substring");
+        assert.strictEqual(getHighlightMatchMode(normalized), "substring");
     });
 
     test("getAnnotationTagColorId: resolves built-ins with or without trailing colon", () => {

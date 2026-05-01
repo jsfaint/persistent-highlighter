@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import type { HighlightedTerm, HighlightPosition } from "../types";
 import { RegexCache } from "./regex-cache";
-import { getHighlightCaseSensitive } from "./highlight-term-utils";
+import { getHighlightCaseSensitive, getHighlightMatchMode } from "./highlight-term-utils";
 
 /**
  * 正则匹配安全上限
@@ -122,7 +122,7 @@ export class EditorUtils {
         const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
 
         try {
-            const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
+            const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, getHighlightMatchMode(term));
 
             this.executeRegexWithSafety(regex, text, (match) => {
                 const startPos = document.positionAt(match.index);
@@ -155,7 +155,7 @@ export class EditorUtils {
 
             try {
                 const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
-                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
+                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, getHighlightMatchMode(term));
 
                 this.executeRegexWithSafety(regex, textContent, (match) => {
                     const startPos = document.positionAt(match.index);
@@ -200,7 +200,7 @@ export class EditorUtils {
 
             try {
                 const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
-                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
+                const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, getHighlightMatchMode(term));
                 let found = false;
 
                 this.executeRegexWithSafety(regex, text, (match) => {
@@ -237,7 +237,7 @@ export class EditorUtils {
 
         try {
             const caseSensitive = getHighlightCaseSensitive(term, defaultCaseSensitive);
-            const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, term.matchMode);
+            const regex = RegexCache.getInstance().getRegex(term.text, caseSensitive, getHighlightMatchMode(term));
             return regex.test(fileContent);
         } catch {
             return false;
