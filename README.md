@@ -20,7 +20,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - **Tree View Sidebar**: Manage all your highlights in a dedicated sidebar view.
 - **Startup-Ready Rule List**: The Highlights sidebar shows saved rules even when no file editor is active.
 - **Workspace Match Navigator**: Expand highlight rules in the sidebar to see current-workspace match counts and jump to exact match locations.
-- **Annotation Tag Profile**: Automatically synchronize high-contrast, bold highlights with distinct semantic colors for common code-note tags such as TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED:.
+- **Annotation Tag Profile**: Automatically synchronize high-contrast, bold highlights with distinct semantic colors for common code-note tags such as TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED:. Built-in annotation tags always match case-sensitively and use whole-word matching.
 - **Ripgrep-Accelerated Workspace Search**: Uses system `rg`/ripgrep when available to speed up workspace match discovery, with a safe built-in VS Code scan fallback.
 - **Rule Scope Control**: Limit highlights to the current workspace, file, or language.
 - **Per-Rule Settings**: Toggle enable state, case sensitivity, and match mode for each highlight rule.
@@ -130,6 +130,8 @@ The extension automatically creates and synchronizes bold, high-contrast local h
 
 Changes to `persistent-highlighter.annotationTags` are synchronized automatically. Sync creates missing rules, upgrades existing bare built-in annotation rules such as `NOTE` to `NOTE:`, re-enables existing equivalent rules when needed, assigns built-in tags distinct high-contrast colors, and does not create duplicates. Extra tags from `persistent-highlighter.annotationTags` keep the exact configured text and use a deterministic fallback color from the annotation palette.
 
+Built-in annotation tags always use case-sensitive, whole-word matching, independent of `persistent-highlighter.caseSensitive` and any stale stored rule fields. For example, built-in `TODO:` matches `TODO:` but not `todo:`. Custom annotation tags keep their configured text and current per-rule matching behavior.
+
 ### Rule Editing
 
 Use `Persistent Highlighter: Edit Highlight Rule` from the Command Palette, or click the edit action in the Highlights view, to configure an existing rule:
@@ -151,7 +153,7 @@ The extension provides several configuration options to customize behavior:
 
 ### Search Settings
 
-- `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for highlights (default: false)
+- `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for regular highlights (default: false). Built-in annotation tags are always case-sensitive.
 - `persistent-highlighter.annotationTags`: Additional annotation tags to automatically synchronize with the built-in annotation tag profile (default: `[]`)
 
 ### Context Menu Settings
@@ -185,6 +187,17 @@ The extension offers 18 carefully selected preset colors:
 - **Rose** (#F5B7B1)
 
 ## Recent Updates
+
+### Version 0.3.2
+
+- **Annotation Tag Matching**:
+  - Built-in annotation tags now always use case-sensitive matching, so `TODO:` does not match `todo:`
+  - Built-in annotation tags now always use whole-word matching, including during editor scans and workspace match navigation
+  - Stored built-in annotation rules with stale case sensitivity or match mode fields are normalized back to the built-in behavior
+  - Custom annotation tags from `persistent-highlighter.annotationTags` keep their configured text and per-rule matching behavior
+- **Testing**:
+  - Added regression coverage for built-in annotation tag normalization, editor matching, and workspace search behavior
+  - Test suite now passes with **106 tests**
 
 ### Version 0.3.1
 
