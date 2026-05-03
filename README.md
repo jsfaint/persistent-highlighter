@@ -130,6 +130,8 @@ The extension automatically creates and synchronizes bold, high-contrast local h
 
 Changes to `persistent-highlighter.annotationTags` are synchronized automatically. Sync creates missing rules, upgrades existing bare built-in annotation rules such as `NOTE` to `NOTE:`, re-enables existing equivalent rules when needed, assigns built-in tags distinct high-contrast colors, and does not create duplicates. Extra tags from `persistent-highlighter.annotationTags` keep the exact configured text and use a deterministic fallback color from the annotation palette.
 
+Use the `persistent-highlighter.annotationEnabled` setting (default: `true`) to temporarily hide all annotation tag highlights without deleting their rules. When disabled, annotation rules are hidden from both the editor and the sidebar tree. Rules persist and reappear automatically when the setting is re-enabled.
+
 Built-in annotation tags always use case-sensitive, whole-word matching, independent of `persistent-highlighter.caseSensitive` and any stale stored rule fields. For example, built-in `TODO:` matches `TODO:` but not `todo:`. Custom annotation tags keep their configured text and current per-rule matching behavior.
 
 ### Rule Editing
@@ -154,6 +156,9 @@ The extension provides several configuration options to customize behavior:
 ### Search Settings
 
 - `persistent-highlighter.caseSensitive`: Enable case-sensitive matching for regular highlights (default: false). Built-in annotation tags are always case-sensitive.
+### Annotation Tag Settings
+
+- `persistent-highlighter.annotationEnabled`: Enable or disable annotation tag highlighting without deleting rules (default: `true`)
 - `persistent-highlighter.annotationTags`: Additional annotation tags to automatically synchronize with the built-in annotation tag profile (default: `[]`)
 
 ### Context Menu Settings
@@ -187,6 +192,16 @@ The extension offers 18 carefully selected preset colors:
 - **Rose** (#F5B7B1)
 
 ## Recent Updates
+
+### Version 0.3.3
+
+- **Annotation Toggle**:
+  - Added `persistent-highlighter.annotationEnabled` setting (default: `true`) to temporarily hide all annotation tag highlights without deleting rules
+  - When disabled, annotation rules are hidden from both the editor and the sidebar tree
+  - Rules persist and reappear automatically when re-enabled
+- **Testing**:
+  - Added regression coverage for annotation toggle behavior in tree view and manager
+  - Test suite now passes with **108 tests**
 
 ### Version 0.3.2
 
