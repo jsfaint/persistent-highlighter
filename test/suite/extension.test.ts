@@ -533,4 +533,54 @@ suite('Extension 核心功能测试', () => {
         const result = EditorUtils.validateActiveEditor();
         assert.strictEqual(result, null);
     });
+
+    test('HighlightManager: annotationEnabled 配置变更不会破坏已有 annotation 规则', async () => {
+        let storedTerms: HighlightedTerm[] = [
+            { id: 'highlight:todo', text: 'TODO:', colorId: 0, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global', isAnnotationTag: true, annotationColorId: 0 }
+        ];
+        let configurationListener: ((event: vscode.ConfigurationChangeEvent) => void) | undefined;
+        const mockWindow = getMockVSCodeWindow();
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockWindow.activeTextEditor = mockEditor;
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationEnabled' || section === 'persistent-highlighter.annotationEnabled') {
+                    return true as T;
+                }
+                if (section === 'caseSensitive' || section === 'persistent-highlighter.caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            },
+            has: () => true,
+            update: () => Promise.resolve(),
+            inspect: () => undefined
+        } as vscode.WorkspaceConfiguration);
+        mockWorkspace.onDidChangeConfiguration = ((listener: (event: vscode.ConfigurationChangeEvent) => void) => {
+            configurationListener = listener;
+            return { dispose: () => {} };
+        }) as typeof mockWorkspace.onDidChangeConfiguration;
+
+        new HighlightManager(mockContext);
+        await waitForAsyncWork();
+
+        // 规则应保留在 globalState 中
+        assert.strictEqual(storedTerms.length, 1);
+        assert.strictEqual(storedTerms[0].text, 'TODO:');
+
+        configurationListener?.({
+            affectsConfiguration: (section: string) => section === 'persistent-highlighter.annotationEnabled'
+        } as vscode.ConfigurationChangeEvent);
+        await waitForAsyncWork();
+
+        // 规则不应被删除
+        assert.strictEqual(storedTerms.length, 1);
+        assert.strictEqual(storedTerms[0].text, 'TODO:');
+        assert.strictEqual(storedTerms[0].isAnnotationTag, true);
+    });
 });

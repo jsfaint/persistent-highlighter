@@ -104,6 +104,12 @@ export class HighlightManager implements vscode.Disposable {
                     return;
                 }
 
+                if (event.affectsConfiguration("persistent-highlighter.annotationEnabled")) {
+                    this.#refreshAllEditors();
+                    this.#refreshSidebar();
+                    return;
+                }
+
                 if (event.affectsConfiguration("persistent-highlighter.annotationTags")) {
                     void this.#syncAnnotationTagProfile();
                 }
@@ -642,11 +648,18 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     #getApplicableTerms(document: vscode.TextDocument, includeDisabled: boolean): HighlightedTerm[] {
+        const annotationEnabled = this.#getAnnotationEnabledConfig();
         return this.#getTerms().filter((term) => {
             if (!doesHighlightApplyToDocument(term, document)) {
                 return false;
             }
-            return includeDisabled || term.enabled !== false;
+            if (!includeDisabled && term.enabled === false) {
+                return false;
+            }
+            if (term.isAnnotationTag && !annotationEnabled) {
+                return false;
+            }
+            return true;
         });
     }
 
@@ -1103,6 +1116,10 @@ export class HighlightManager implements vscode.Disposable {
      */
     #getCaseSensitiveConfig(): boolean {
         return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+    }
+
+    #getAnnotationEnabledConfig(): boolean {
+        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('annotationEnabled', true);
     }
 
     /**

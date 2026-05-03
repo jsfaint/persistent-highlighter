@@ -38,6 +38,11 @@
           "default": false,
           "description": "Collapse context menu submenus by default"
         },
+        "persistent-highlighter.annotationEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable built-in annotation tag highlighting"
+        },
         "persistent-highlighter.annotationTags": {
           "type": "array",
           "items": {

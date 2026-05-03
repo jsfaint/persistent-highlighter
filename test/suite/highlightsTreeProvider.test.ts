@@ -6,10 +6,11 @@ import {
     createMockDocument,
     createMockEditor,
     getMockVSCodeWindow,
+    getMockVSCodeWorkspace,
     setupVSCodeMocks
 } from './helpers';
 import type { HighlightedTerm } from '../../src/types';
-import type { MockExtensionContext } from './helpers';
+import type { MockExtensionContext, MockVSCodeWorkspace } from './helpers';
 
 suite('HighlightsTreeProvider 测试', () => {
     let mockContext: MockExtensionContext;
@@ -295,5 +296,53 @@ suite('HighlightsTreeProvider 测试', () => {
             newProvider.dispose();
             newProvider.dispose(); // 第二次调用
         });
+    });
+
+    test('HighlightsTreeProvider: annotationEnabled 关闭时隐藏 annotation 规则', async () => {
+        const annotationTerms: HighlightedTerm[] = [
+            { id: 'highlight:todo', text: 'TODO:', colorId: 0, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global', isAnnotationTag: true, annotationColorId: 0 },
+            { id: 'highlight:fixme', text: 'FIXME:', colorId: 0, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global', isAnnotationTag: true, annotationColorId: 1 },
+            { id: 'highlight:test', text: 'test', colorId: 1, enabled: true, caseSensitive: false, matchMode: 'wholeWord', scopeType: 'global' }
+        ];
+        mockContext.globalState.get = <T>(key: string, defaultValue?: T) => {
+            if (key === 'persistentHighlighterTerms') {
+                return annotationTerms as unknown as T;
+            }
+            return defaultValue as T;
+        };
+
+        const mockWorkspace = getMockVSCodeWorkspace() as unknown as MockVSCodeWorkspace;
+        const originalGetConfig = mockWorkspace.getConfiguration;
+        mockWorkspace.getConfiguration = () => ({
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationEnabled' || section === 'persistent-highlighter.annotationEnabled') {
+                    return false as T;
+                }
+                if (section === 'caseSensitive' || section === 'persistent-highlighter.caseSensitive') {
+                    return false as T;
+                }
+                return defaultValue;
+            },
+            has: () => true,
+            update: () => Promise.resolve(),
+            inspect: () => undefined
+        } as vscode.WorkspaceConfiguration);
+
+        const provider = new HighlightsTreeProvider(mockContext);
+        const children = await provider.getChildren();
+
+        const annotationItems = children.filter((child) =>
+            child instanceof HighlightItem && (child.text === 'TODO:' || child.text === 'FIXME:')
+        );
+        const normalItems = children.filter((child) =>
+            child instanceof HighlightItem && child.text === 'test'
+        );
+
+        assert.strictEqual(annotationItems.length, 0, 'annotationEnabled 关闭时不应显示 annotation 规则');
+        assert.strictEqual(normalItems.length, 1, 'annotationEnabled 关闭时不应影响普通高亮规则');
+        assert.strictEqual(children.length, 1, '只有 test 规则应显示');
+
+        mockWorkspace.getConfiguration = originalGetConfig;
+        provider.dispose();
     });
 });

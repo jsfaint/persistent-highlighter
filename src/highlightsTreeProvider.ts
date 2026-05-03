@@ -175,6 +175,9 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
 
         if (!currentEditor) {
             for (const term of terms) {
+                if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
+                    continue;
+                }
                 const workspaceMatchCount = workspaceFolder
                     ? (await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive)).length
                     : 0;
@@ -184,7 +187,13 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
             return result;
         }
 
-        for (const term of terms.filter((candidate) => candidate.enabled !== false)) {
+        for (const term of terms) {
+            if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
+                continue;
+            }
+            if (term.enabled === false) {
+                continue;
+            }
             const activeFileMatchCount = doesHighlightApplyToDocument(term, currentEditor.document)
                 ? EditorUtils.findHighlightRanges(currentEditor.document, term, caseSensitive).length
                 : 0;
@@ -202,6 +211,10 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
 
     private getCaseSensitiveConfig(): boolean {
         return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
+    }
+
+    private getAnnotationEnabledConfig(): boolean {
+        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('annotationEnabled', true);
     }
 
     private getTerms(): HighlightedTerm[] {
