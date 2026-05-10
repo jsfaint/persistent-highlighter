@@ -67,6 +67,13 @@ function getCommandConfig(highlightManager: HighlightManager, treeProvider: High
             command: "persistent-highlighter.editHighlight",
             callback: async (item: unknown) =>
                 highlightManager.editHighlightRule((item as HighlightItem | undefined)?.ruleId)
+        },
+        {
+            command: "persistent-highlighter.toggleAnnotationTag",
+            callback: (item: unknown) => {
+                const hi = item as HighlightItem;
+                highlightManager.toggleAnnotationTag(hi.text);
+            }
         }
     ];
 }

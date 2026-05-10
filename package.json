@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/jsfaint/persistent-highlighter.git"
   },
-  "version": "0.3.3",
+  "version": "0.3.4",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -50,6 +50,19 @@
           },
           "default": [],
           "description": "Additional annotation tags to automatically synchronize with the built-in annotation tag profile. Built-ins include TODO:, FIXME:, NOTE:, BUG:, HACK:, WARN:, WARNING:, REVIEW:, OPTIMIZE:, XXX:, and DEPRECATED: with distinct high-contrast colors."
+        },
+        "persistent-highlighter.annotationTagStates": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "disabled",
+              "removed"
+            ]
+          },
+          "default": {},
+          "description": "Per-tag state for built-in annotation tags. Key is tag identity (e.g. TODO, FIXME), value is 'enabled', 'disabled', or 'removed'."
         }
       }
     },
@@ -105,6 +118,11 @@
       {
         "command": "persistent-highlighter.jumpToPrevHighlight",
         "title": "Persistent Highlighter: Jump to Previous Highlight"
+      },
+      {
+        "command": "persistent-highlighter.toggleAnnotationTag",
+        "title": "Toggle Annotation Tag",
+        "icon": "$(eye)"
       }
     ],
     "views": {
@@ -117,18 +135,6 @@
       ]
     },
     "menus": {
-      "view/title": [
-        {
-          "command": "persistent-highlighter.refreshTree",
-          "when": "view == highlightsView",
-          "group": "navigation"
-        },
-        {
-          "command": "persistent-highlighter.clearAllHighlights",
-          "when": "view == highlightsView",
-          "group": "navigation"
-        }
-      ],
       "view/item/context": [
         {
           "command": "persistent-highlighter.editHighlight",
@@ -139,6 +145,23 @@
           "command": "persistent-highlighter.removeHighlightFromTree",
           "when": "view == highlightsView && viewItem == highlightItem",
           "group": "inline"
+        },
+      {
+        "command": "persistent-highlighter.toggleAnnotationTag",
+        "when": "view == highlightsView && viewItem == annotationTag",
+        "group": "inline"
+      }
+    ],
+    "view/title": [
+      {
+        "command": "persistent-highlighter.refreshTree",
+          "when": "view == highlightsView",
+          "group": "navigation"
+        },
+        {
+          "command": "persistent-highlighter.clearAllHighlights",
+          "when": "view == highlightsView",
+          "group": "navigation"
         }
       ],
       "editor/context": [

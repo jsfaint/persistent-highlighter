@@ -27,7 +27,8 @@ export class HighlightItem extends vscode.TreeItem {
             dark: { backgroundColor: string };
         },
         public readonly activeFileMatchCount?: number,
-        public readonly workspaceMatchCount: number = 0
+        public readonly workspaceMatchCount: number = 0,
+        public readonly isAnnotationTag: boolean = false
     ) {
         super(text, workspaceMatchCount > 0 ? vscode.TreeItemCollapsibleState.Collapsed : collapsibleState);
 
@@ -35,8 +36,8 @@ export class HighlightItem extends vscode.TreeItem {
         const statusLabel = isEnabled ? undefined : 'Disabled';
         const matchLabel = this.createMatchLabel(activeFileMatchCount, workspaceMatchCount);
         this.description = [statusLabel, matchLabel, scopeLabel, matchModeLabel, colorLabel].filter(Boolean).join(' · ');
-        this.iconPath = new vscode.ThemeIcon('symbol-color');
-        this.contextValue = 'highlightItem';
+        this.iconPath = new vscode.ThemeIcon(isAnnotationTag ? (isEnabled ? 'eye' : 'eye-closed') : 'symbol-color');
+        this.contextValue = isAnnotationTag ? 'annotationTag' : 'highlightItem';
         this.tooltip = `Click to jump to first occurrence of "${text}"`;
         this.command = {
             command: 'persistent-highlighter.jumpToHighlight',
@@ -154,7 +155,8 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
             term.isCustomColor,
             term.customColor,
             activeFileMatchCount,
-            workspaceMatchCount
+            workspaceMatchCount,
+            term.isAnnotationTag
         );
     }
 
@@ -178,7 +180,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                 if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
                     continue;
                 }
-                if (term.enabled === false) {
+                if (!term.isAnnotationTag && term.enabled === false) {
                     continue;
                 }
                 const workspaceMatchCount = workspaceFolder
@@ -194,7 +196,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
             if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
                 continue;
             }
-            if (term.enabled === false) {
+            if (!term.isAnnotationTag && term.enabled === false) {
                 continue;
             }
             const activeFileMatchCount = doesHighlightApplyToDocument(term, currentEditor.document)

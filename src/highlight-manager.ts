@@ -97,6 +97,11 @@ export class HighlightManager implements vscode.Disposable {
 
         vscode.workspace.onDidChangeConfiguration(
             (event) => {
+                if (event.affectsConfiguration("persistent-highlighter.annotationTagStates")) {
+                    void this.#syncAnnotationTagProfile();
+                    return;
+                }
+
                 if (event.affectsConfiguration("persistent-highlighter.caseSensitive")) {
                     void this.#migrateStoredTerms();
                     this.#refreshAllEditors();
@@ -371,14 +376,28 @@ export class HighlightManager implements vscode.Disposable {
             return;
         }
 
+        const tagStates = this.#getAnnotationTagStates();
         const terms = this.#getTerms();
         let changed = false;
 
         for (const tag of tags) {
+            const identity = this.#isBuiltInAnnotationTag(tag) ? getAnnotationTagIdentity(tag) : undefined;
+            const state = identity ? tagStates[identity] : undefined;
+
+            // Skip "removed" tags entirely
+            if (state === "removed") {
+                const existingIndex = this.#findPreferredAnnotationRuleIndex(terms, tag);
+                if (existingIndex !== -1) {
+                    terms.splice(existingIndex, 1);
+                    changed = true;
+                }
+                continue;
+            }
+
             let existingIndex = this.#findPreferredAnnotationRuleIndex(terms, tag);
 
             if (existingIndex === -1) {
-                terms.push(this.#createAnnotationTagHighlight(tag));
+                terms.push(this.#createAnnotationTagHighlight(tag, state !== "disabled"));
                 changed = true;
                 continue;
             }
@@ -397,12 +416,13 @@ export class HighlightManager implements vscode.Disposable {
                 ? existing.annotationColorId !== semanticColorId
                 : !isValidAnnotationTagColorId(existing.annotationColorId);
             const needsTextUpgrade = this.#isBuiltInAnnotationTag(tag) && !EditorUtils.textEquals(existing.text, tag, false);
-            if (existing.enabled === false || existing.isAnnotationTag !== true || needsAnnotationColor || needsTextUpgrade) {
+            const targetEnabled = state !== "disabled";
+            if (existing.enabled !== targetEnabled || existing.isAnnotationTag !== true || needsAnnotationColor || needsTextUpgrade) {
                 terms[existingIndex] = normalizeHighlightedTerm(
                     {
                         ...existing,
                         text: needsTextUpgrade ? tag : existing.text,
-                        enabled: true,
+                        enabled: targetEnabled,
                         isAnnotationTag: true,
                         annotationColorId: needsAnnotationColor ? semanticColorId : existing.annotationColorId
                     },
@@ -417,6 +437,28 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         await this.#updateGlobalState(terms);
+    }
+
+    #getAnnotationTagStates(): Record<string, "enabled" | "disabled" | "removed"> {
+        return vscode.workspace
+            .getConfiguration('persistent-highlighter')
+            .get<Record<string, "enabled" | "disabled" | "removed">>('annotationTagStates', {});
+    }
+
+    #setAnnotationTagState(tagIdentity: string, state: "enabled" | "disabled" | "removed"): void {
+        const config = vscode.workspace.getConfiguration('persistent-highlighter');
+        const current = config.get<Record<string, string>>('annotationTagStates', {});
+        current[tagIdentity] = state;
+        void config.update('annotationTagStates', current, vscode.ConfigurationTarget.Global);
+    }
+
+    toggleAnnotationTag(tagText: string): void {
+        const identity = getAnnotationTagIdentity(tagText);
+        const states = this.#getAnnotationTagStates();
+        const current = states[identity] ?? "enabled";
+        const next = current === "enabled" ? "disabled" : "enabled";
+        this.#setAnnotationTagState(identity, next);
+        void this.#syncAnnotationTagProfile();
     }
 
     /**
@@ -1069,12 +1111,12 @@ export class HighlightManager implements vscode.Disposable {
         return isBuiltInAnnotationTagText(text);
     }
 
-    #createAnnotationTagHighlight(tag: string): HighlightedTerm {
+    #createAnnotationTagHighlight(tag: string, enabled: boolean = true): HighlightedTerm {
         return normalizeHighlightedTerm(
             {
                 text: tag,
                 colorId: ANNOTATION_TAG_COLOR_ID,
-                enabled: true,
+                enabled,
                 caseSensitive: false,
                 matchMode: "wholeWord",
                 scopeType: "global",
