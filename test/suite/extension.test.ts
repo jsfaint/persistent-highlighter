@@ -129,7 +129,7 @@ suite('Extension 核心功能测试', () => {
     test('HighlightManager: 获取配置', () => {
         // Mock getConfiguration
         getMockVSCodeWorkspace().getConfiguration = () => {
-            return createMockConfiguration(true);
+            return createMockConfiguration({ caseSensitive: true });
         };
 
         const manager = new HighlightManager(mockContext);
@@ -184,7 +184,7 @@ suite('Extension 核心功能测试', () => {
             storedTerms = value as HighlightedTerm[];
         };
         mockWorkspace.getConfiguration = () => ({
-            ...createMockConfiguration(false),
+            ...createMockConfiguration({ caseSensitive: false }),
             get: <T>(section: string, defaultValue?: T) => {
                 if (section === 'annotationTags') {
                     return ['SECURITY', 'todo'] as T;
@@ -222,7 +222,7 @@ suite('Extension 核心功能测试', () => {
             storedTerms = value as HighlightedTerm[];
         };
         mockWorkspace.getConfiguration = () => ({
-            ...createMockConfiguration(false),
+            ...createMockConfiguration({ caseSensitive: false }),
             get: <T>(section: string, defaultValue?: T) => {
                 if (section === 'annotationTags') {
                     return ['SECURITY:'] as T;
@@ -252,7 +252,7 @@ suite('Extension 核心功能测试', () => {
         mockContext.globalState.update = async (_key: string, value: unknown) => {
             storedTerms = value as HighlightedTerm[];
         };
-        mockWorkspace.getConfiguration = () => createMockConfiguration(false);
+        mockWorkspace.getConfiguration = () => createMockConfiguration({ caseSensitive: false });
 
         new HighlightManager(mockContext);
         await waitForAsyncWork();
@@ -300,7 +300,7 @@ suite('Extension 核心功能测试', () => {
             storedTerms = value as HighlightedTerm[];
         };
         mockWorkspace.getConfiguration = () => ({
-            ...createMockConfiguration(false),
+            ...createMockConfiguration({ caseSensitive: false }),
             get: <T>(section: string, defaultValue?: T) => {
                 if (section === 'annotationTags') {
                     return configuredTags as T;
@@ -555,6 +555,9 @@ suite('Extension 核心功能测试', () => {
                 if (section === 'caseSensitive' || section === 'persistent-highlighter.caseSensitive') {
                     return false as T;
                 }
+                if (section === 'annotationTagStates') {
+                    return { 'TODO': 'enabled' } as T;
+                }
                 return defaultValue;
             },
             has: () => true,
@@ -569,18 +572,20 @@ suite('Extension 核心功能测试', () => {
         new HighlightManager(mockContext);
         await waitForAsyncWork();
 
-        // 规则应保留在 globalState 中
-        assert.strictEqual(storedTerms.length, 1);
-        assert.strictEqual(storedTerms[0].text, 'TODO:');
+        const todoBefore = storedTerms.filter((t) => t.text === 'TODO:');
+        assert.strictEqual(todoBefore.length, 1, 'TODO: should still be in stored terms');
+        assert.strictEqual(todoBefore[0].isAnnotationTag, true);
+        assert.ok(storedTerms.length > 1, 'other built-in tags are synced during construction');
 
         configurationListener?.({
             affectsConfiguration: (section: string) => section === 'persistent-highlighter.annotationEnabled'
         } as vscode.ConfigurationChangeEvent);
         await waitForAsyncWork();
 
-        // 规则不应被删除
-        assert.strictEqual(storedTerms.length, 1);
-        assert.strictEqual(storedTerms[0].text, 'TODO:');
-        assert.strictEqual(storedTerms[0].isAnnotationTag, true);
+        // 规则不应被删除或异常变更
+        const todoAfter = storedTerms.filter((t) => t.text === 'TODO:');
+        assert.strictEqual(todoAfter.length, 1, 'TODO: must not be removed');
+        assert.strictEqual(todoAfter[0].text, 'TODO:');
+        assert.strictEqual(todoAfter[0].isAnnotationTag, true);
     });
 });

@@ -185,11 +185,21 @@ export function createMockTerms(): HighlightedTerm[] {
 /**
  * 创建模拟的 WorkspaceConfiguration
  */
-export function createMockConfiguration(caseSensitive: boolean = false): vscode.WorkspaceConfiguration {
+export function createMockConfiguration(options?: { caseSensitive?: boolean; annotationTagStates?: Record<string, string>; annotationTags?: string[]; annotationEnabled?: boolean }): vscode.WorkspaceConfiguration {
+    const opts = { caseSensitive: false, annotationTagStates: {}, annotationTags: [], annotationEnabled: true, ...options };
     const mockConfig = {
         get: <T>(section: string, defaultValue?: T) => {
             if (section === 'persistent-highlighter.caseSensitive' || section === 'caseSensitive') {
-                return caseSensitive as T;
+                return opts.caseSensitive as T;
+            }
+            if (section === 'annotationTagStates') {
+                return opts.annotationTagStates as T;
+            }
+            if (section === 'annotationTags') {
+                return opts.annotationTags as T;
+            }
+            if (section === 'annotationEnabled' || section === 'persistent-highlighter.annotationEnabled') {
+                return opts.annotationEnabled as T;
             }
             return defaultValue;
         },
