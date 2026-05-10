@@ -178,6 +178,9 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                 if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
                     continue;
                 }
+                if (term.enabled === false) {
+                    continue;
+                }
                 const workspaceMatchCount = workspaceFolder
                     ? (await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive)).length
                     : 0;
