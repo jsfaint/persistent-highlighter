@@ -38,6 +38,7 @@ Get started in [Persistent Highlighter](https://marketplace.visualstudio.com/ite
 - `Persistent Highlighter: Add Custom Color Highlight`: Adds a highlight with a custom color chosen from 25 built-in colors or a custom hex color.
 - `Persistent Highlighter: Remove Highlight`: Removes a highlight from the selected text or the word under the cursor.
 - `Persistent Highlighter: Toggle Highlight`: Toggles the highlight for the selected text or the word under the cursor.
+- `Persistent Highlighter: Toggle Annotation Tag`: Toggle a built-in annotation tag between enabled and disabled. Click the eye icon in the sidebar, or run from the Command Palette.
 - `Persistent Highlighter: Jump to Next Highlight`: Navigate to the next highlight in the current file.
 - `Persistent Highlighter: Jump to Previous Highlight`: Navigate to the previous highlight in the current file.
 - `Persistent Highlighter: Clear All Highlights`: Removes all highlights from all files.
@@ -132,6 +133,8 @@ Changes to `persistent-highlighter.annotationTags` are synchronized automaticall
 
 Use the `persistent-highlighter.annotationEnabled` setting (default: `true`) to temporarily hide all annotation tag highlights without deleting their rules. When disabled, annotation rules are hidden from both the editor and the sidebar tree. Rules persist and reappear automatically when the setting is re-enabled.
 
+Each built-in annotation tag can also be toggled individually via the `persistent-highlighter.annotationTagStates` setting. Click the eye icon ($(eye)) in the sidebar next to any annotation tag to disable it, or click again ($(eye-closed)) to re-enable. Disabled tags remain visible in the sidebar with a disabled icon and description so you can always re-enable them. The global `annotationEnabled` setting still takes priority over per-tag state — when annotation is globally disabled, per-tag settings are ignored.
+
 Built-in annotation tags always use case-sensitive, whole-word matching, independent of `persistent-highlighter.caseSensitive` and any stale stored rule fields. For example, built-in `TODO:` matches `TODO:` but not `todo:`. Custom annotation tags keep their configured text and current per-rule matching behavior.
 
 ### Rule Editing
@@ -160,6 +163,7 @@ The extension provides several configuration options to customize behavior:
 
 - `persistent-highlighter.annotationEnabled`: Enable or disable annotation tag highlighting without deleting rules (default: `true`)
 - `persistent-highlighter.annotationTags`: Additional annotation tags to automatically synchronize with the built-in annotation tag profile (default: `[]`)
+- `persistent-highlighter.annotationTagStates`: Per-tag state for built-in annotation tags (default: `{}`). Key is the tag identity (e.g. `TODO`, `FIXME`), value is `"enabled"` or `"disabled"`. Tags not in the object default to enabled. Global `annotationEnabled` takes priority.
 
 ### Context Menu Settings
 
@@ -192,6 +196,18 @@ The extension offers 18 carefully selected preset colors:
 - **Rose** (#F5B7B1)
 
 ## Recent Updates
+
+### Version 0.3.4
+
+- **Per-Tag Annotation Toggle**:
+  - Added `persistent-highlighter.annotationTagStates` setting for individual tag enable/disable
+  - Click the eye icon in the sidebar to toggle any annotation tag on or off
+  - Disabled tags remain visible in the sidebar with an eye-closed icon, always accessible for re-enable
+  - Global `annotationEnabled` still takes priority over per-tag settings
+  - Removed `"removed"` state — the toggle is purely on/off, no destructive operations
+- **Clear All Highlights** now preserves annotation tags instead of deleting them
+- **Testing**:
+  - Test suite now passes with **108 tests**
 
 ### Version 0.3.3
 
