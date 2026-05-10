@@ -352,14 +352,18 @@ export class HighlightManager implements vscode.Disposable {
      */
     clearAllHighlights(): void {
         const terms = this.#getTerms();
-        if (terms.length === 0) {
-            vscode.window.showInformationMessage("There are no highlights to clear.");
+        const userTerms = terms.filter((t) => !t.isAnnotationTag);
+        if (userTerms.length === 0) {
+            userTerms.length === terms.length
+                ? vscode.window.showInformationMessage("There are no highlights to clear.")
+                : vscode.window.showInformationMessage("All highlights have been cleared.");
             return;
         }
 
         this.#decoratorManager.dispose();
 
-        void this.#updateGlobalState([]);
+        const annotationTerms = terms.filter((t) => t.isAnnotationTag);
+        void this.#updateGlobalState(annotationTerms);
         vscode.window.showInformationMessage("All highlights have been cleared.");
     }
 
