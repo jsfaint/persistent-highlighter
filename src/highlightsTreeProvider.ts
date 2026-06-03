@@ -10,7 +10,7 @@ import {
     normalizeHighlightedTerms
 } from './utils/highlight-term-utils';
 
-type HighlightTreeItem = HighlightItem | MatchLocationItem;
+type HighlightTreeItem = HighlightItem | MatchLocationItem | vscode.TreeItem;
 
 export class HighlightItem extends vscode.TreeItem {
     constructor(
@@ -131,12 +131,12 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         );
     }
 
-    private createNoHighlightsItem(): HighlightItem {
+    private createNoHighlightsItem(): vscode.TreeItem {
         const item = new vscode.TreeItem('No highlights in current file');
         item.description = 'Add highlights to see them here';
         item.iconPath = new vscode.ThemeIcon('symbol-color');
         item.contextValue = 'noHighlights';
-        return item as HighlightItem;
+        return item;
     }
 
     private createHighlightItem(
@@ -160,6 +160,18 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         );
     }
 
+    private *filteredTerms(terms: HighlightedTerm[]): Generator<HighlightedTerm, void, undefined> {
+        for (const term of terms) {
+            if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
+                continue;
+            }
+            if (!term.isAnnotationTag && term.enabled === false) {
+                continue;
+            }
+            yield term;
+        }
+    }
+
     private async getVisibleTermsForCurrentContext(): Promise<{
         term: HighlightedTerm;
         activeFileMatchCount: number | undefined;
@@ -176,13 +188,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         }[] = [];
 
         if (!currentEditor) {
-            for (const term of terms) {
-                if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
-                    continue;
-                }
-                if (!term.isAnnotationTag && term.enabled === false) {
-                    continue;
-                }
+            for (const term of this.filteredTerms(terms)) {
                 const workspaceMatchCount = workspaceFolder
                     ? (await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive)).length
                     : 0;
@@ -192,13 +198,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
             return result;
         }
 
-        for (const term of terms) {
-            if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
-                continue;
-            }
-            if (!term.isAnnotationTag && term.enabled === false) {
-                continue;
-            }
+        for (const term of this.filteredTerms(terms)) {
             const activeFileMatchCount = doesHighlightApplyToDocument(term, currentEditor.document)
                 ? EditorUtils.findHighlightRanges(currentEditor.document, term, caseSensitive).length
                 : 0;

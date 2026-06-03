@@ -6,6 +6,15 @@ import { HighlightManager } from "./highlight-manager";
 let highlightManagerInstance: HighlightManager | undefined;
 let treeProviderInstance: HighlightsTreeProvider | undefined;
 
+function isHighlightItem(item: unknown): item is HighlightItem {
+    return (
+        typeof item === "object"
+        && item !== null
+        && "ruleId" in item
+        && typeof (item as Record<string, unknown>).ruleId === "string"
+    );
+}
+
 /**
  * 激活扩展
  */
@@ -59,20 +68,24 @@ function getCommandConfig(highlightManager: HighlightManager, treeProvider: High
         {
             command: "persistent-highlighter.removeHighlightFromTree",
             callback: (item: unknown) => {
-                const hi = item as HighlightItem;
-                highlightManager.removeHighlightById(hi.ruleId);
+                if (!isHighlightItem(item)) {
+                    return;
+                }
+                highlightManager.removeHighlightById(item.ruleId);
             }
         },
         {
             command: "persistent-highlighter.editHighlight",
             callback: async (item: unknown) =>
-                highlightManager.editHighlightRule((item as HighlightItem | undefined)?.ruleId)
+                highlightManager.editHighlightRule(isHighlightItem(item) ? item.ruleId : undefined)
         },
         {
             command: "persistent-highlighter.toggleAnnotationTag",
             callback: (item: unknown) => {
-                const hi = item as HighlightItem;
-                highlightManager.toggleAnnotationTag(hi.text);
+                if (!isHighlightItem(item)) {
+                    return;
+                }
+                highlightManager.toggleAnnotationTag(item.text);
             }
         }
     ];

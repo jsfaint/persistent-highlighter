@@ -77,12 +77,9 @@ export class DecoratorManager {
             if (highlight.isCustomColor && highlight.customColor) {
                 const colorKey = this.getCustomColorKey(highlight.text, highlight.customColor);
                 if (colorKey) {
-                    let customHighlightEntry = customHighlights.get(colorKey);
-                    if (!customHighlightEntry) {
-                        customHighlightEntry = { ranges: [], highlight };
-                        customHighlights.set(colorKey, customHighlightEntry);
-                    }
-                    customHighlightEntry.ranges.push(...highlight.ranges);
+                    const entry = customHighlights.get(colorKey) ?? { ranges: [], highlight };
+                    entry.ranges.push(...highlight.ranges);
+                    customHighlights.set(colorKey, entry);
                 }
             } else {
                 const colorDecorations = colorHighlights.get(highlight.colorId);
@@ -262,15 +259,15 @@ export class DecoratorManager {
      * 必须在不再需要此管理器时调用,以释放 VS Code 装饰器资源
      * 实现了 vscode.Disposable 接口的约定
      */
-    public dispose(): void {
-        for (const decorationType of this.customDecorationTypes.values()) {
+    private disposeDecorationMap(map: Map<unknown, vscode.TextEditorDecorationType>): void {
+        for (const decorationType of map.values()) {
             decorationType.dispose();
         }
-        this.customDecorationTypes.clear();
+        map.clear();
+    }
 
-        for (const decorationType of this.annotationTagDecorationTypes.values()) {
-            decorationType.dispose();
-        }
-        this.annotationTagDecorationTypes.clear();
+    public dispose(): void {
+        this.disposeDecorationMap(this.customDecorationTypes);
+        this.disposeDecorationMap(this.annotationTagDecorationTypes);
     }
 }
