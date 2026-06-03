@@ -242,6 +242,26 @@ suite("DecoratorManager Suite", () => {
         assert.strictEqual(decoratorManager["annotationTagDecorationTypes"].size, 2);
     });
 
+    test("applyHighlightsToEditor: reuses annotation tag decoration types across calls", () => {
+        const highlights: CachedHighlight[] = [
+            {
+                text: "TODO",
+                ranges: [new vscode.Range(0, 0, 0, 4)],
+                colorId: 0,
+                isAnnotationTag: true,
+                annotationColorId: 0
+            }
+        ];
+
+        decoratorManager.applyHighlightsToEditor(textEditor, highlights);
+
+        const initialDecorationCount = decoratorManager["annotationTagDecorationTypes"].size;
+
+        decoratorManager.applyHighlightsToEditor(textEditor, highlights);
+
+        assert.strictEqual(decoratorManager["annotationTagDecorationTypes"].size, initialDecorationCount);
+    });
+
     test("getCustomColorKey 应该为相同文本和颜色生成相同的键", () => {
         const customColor: ColorDefinition = {
             light: { backgroundColor: "rgba(255, 0, 0, 0.5)" },

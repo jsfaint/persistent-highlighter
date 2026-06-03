@@ -160,6 +160,55 @@ suite("highlight-term-utils 测试", () => {
         );
     });
 
+    test("getHighlightCaseSensitive: built-in annotation tag always returns true", () => {
+        const builtInTag: HighlightedTerm = {
+            text: "TODO:",
+            colorId: 0,
+            isAnnotationTag: true,
+            caseSensitive: false,
+            matchMode: "wholeWord",
+            scopeType: "global"
+        };
+        assert.strictEqual(getHighlightCaseSensitive(builtInTag, false), true);
+        assert.strictEqual(getHighlightCaseSensitive(builtInTag, true), true);
+    });
+
+    test("getHighlightCaseSensitive: custom annotation tag preserves its own caseSensitive", () => {
+        const customTag: HighlightedTerm = {
+            text: "CUSTOM_TAG",
+            colorId: 0,
+            isAnnotationTag: true,
+            caseSensitive: false,
+            matchMode: "substring",
+            scopeType: "global"
+        };
+        assert.strictEqual(getHighlightCaseSensitive(customTag, true), false);
+    });
+
+    test("getHighlightMatchMode: built-in annotation tag always returns wholeWord", () => {
+        const builtInTag: HighlightedTerm = {
+            text: "FIXME:",
+            colorId: 0,
+            isAnnotationTag: true,
+            caseSensitive: false,
+            matchMode: "regex",
+            scopeType: "global"
+        };
+        assert.strictEqual(getHighlightMatchMode(builtInTag), "wholeWord");
+    });
+
+    test("getHighlightMatchMode: custom annotation tag preserves its own matchMode", () => {
+        const customTag: HighlightedTerm = {
+            text: "MYTAG",
+            colorId: 0,
+            isAnnotationTag: true,
+            caseSensitive: false,
+            matchMode: "substring",
+            scopeType: "global"
+        };
+        assert.strictEqual(getHighlightMatchMode(customTag), "substring");
+    });
+
     test("doesHighlightApplyToDocument: file 作用域只命中当前文件", () => {
         const document = createMockDocument("content", "file:///mock/current.ts");
         const sameFileRule = {

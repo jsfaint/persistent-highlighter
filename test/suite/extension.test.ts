@@ -588,4 +588,108 @@ suite('Extension 核心功能测试', () => {
         assert.strictEqual(todoAfter[0].text, 'TODO:');
         assert.strictEqual(todoAfter[0].isAnnotationTag, true);
     });
+
+    test('HighlightManager: toggleAnnotationTag disables an enabled tag', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        let tagStates: Record<string, string> = {};
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration({ caseSensitive: false }),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTagStates') {
+                    return tagStates as T;
+                }
+                if (section === 'caseSensitive' || section === 'persistent-highlighter.caseSensitive') {
+                    return false as T;
+                }
+                if (section === 'annotationTags' || section === 'persistent-highlighter.annotationTags') {
+                    return [] as T;
+                }
+                if (section === 'annotationEnabled' || section === 'persistent-highlighter.annotationEnabled') {
+                    return true as T;
+                }
+                return defaultValue;
+            },
+            has: () => true,
+            update: (section: string, value: unknown) => {
+                if (section === 'annotationTagStates') {
+                    tagStates = value as Record<string, string>;
+                }
+                return Promise.resolve();
+            },
+            inspect: () => undefined
+        } as vscode.WorkspaceConfiguration);
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+
+        const todoTag = storedTerms.find((t) => t.text === 'TODO:');
+        assert.ok(todoTag, 'TODO: tag should exist after initialization');
+        assert.strictEqual(todoTag?.enabled, true);
+
+        manager.toggleAnnotationTag('TODO:');
+        await waitForAsyncWork();
+
+        const todoAfter = storedTerms.find((t) => t.text === 'TODO:');
+        assert.ok(todoAfter, 'TODO: tag should still exist after toggle');
+        assert.strictEqual(todoAfter?.enabled, false);
+        assert.strictEqual(tagStates['TODO'], 'disabled');
+    });
+
+    test('HighlightManager: toggleAnnotationTag enables a disabled tag', async () => {
+        let storedTerms: HighlightedTerm[] = [];
+        let tagStates: Record<string, string> = { 'TODO': 'disabled' };
+        const mockWorkspace = getMockVSCodeWorkspace();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWorkspace.getConfiguration = () => ({
+            ...createMockConfiguration({ caseSensitive: false }),
+            get: <T>(section: string, defaultValue?: T) => {
+                if (section === 'annotationTagStates') {
+                    return tagStates as T;
+                }
+                if (section === 'caseSensitive' || section === 'persistent-highlighter.caseSensitive') {
+                    return false as T;
+                }
+                if (section === 'annotationTags' || section === 'persistent-highlighter.annotationTags') {
+                    return [] as T;
+                }
+                if (section === 'annotationEnabled' || section === 'persistent-highlighter.annotationEnabled') {
+                    return true as T;
+                }
+                return defaultValue;
+            },
+            has: () => true,
+            update: (section: string, value: unknown) => {
+                if (section === 'annotationTagStates') {
+                    tagStates = value as Record<string, string>;
+                }
+                return Promise.resolve();
+            },
+            inspect: () => undefined
+        } as vscode.WorkspaceConfiguration);
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+
+        const todoTag = storedTerms.find((t) => t.text === 'TODO:');
+        assert.ok(todoTag, 'TODO: tag should exist after initialization');
+        assert.strictEqual(todoTag?.enabled, false);
+
+        manager.toggleAnnotationTag('TODO:');
+        await waitForAsyncWork();
+
+        const todoAfter = storedTerms.find((t) => t.text === 'TODO:');
+        assert.ok(todoAfter, 'TODO: tag should still exist after toggle');
+        assert.strictEqual(todoAfter?.enabled, true);
+        assert.strictEqual(tagStates['TODO'], 'enabled');
+    });
 });
