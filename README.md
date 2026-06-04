@@ -197,6 +197,18 @@ The extension offers 18 carefully selected preset colors:
 
 ## Recent Updates
 
+### Version 0.4.0
+
+- **Code Refactoring**:
+  - Extracted `AnnotationTagManager` from `HighlightManager` for single-responsibility separation
+  - Added `IDecoratorManager` interface to decouple decorator logic from decoration type management
+  - Cleaned up dead code and unused configuration
+  - Simplified code patterns and added type guards for better runtime safety
+- **Testing**:
+  - Added tests for annotation tag toggle, highlight term utils, and decorator manager
+  - Updated test mocks and assertions for new interfaces
+  - Test suite now passes with **132 tests** (up from 108)
+
 ### Version 0.3.4
 
 - **Per-Tag Annotation Toggle**:
