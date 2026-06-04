@@ -195,56 +195,6 @@ suite('HighlightsTreeProvider 测试', () => {
         });
     });
 
-    test('HighlightsTreeProvider: getTotalHighlights', () => {
-        const total = treeProvider.getTotalHighlights();
-        assert.strictEqual(total, 3);
-    });
-
-    test('HighlightsTreeProvider: removeHighlight', () => {
-        const totalBefore = treeProvider.getTotalHighlights();
-        treeProvider.removeHighlight('highlight:test');
-        const totalAfter = treeProvider.getTotalHighlights();
-        assert.strictEqual(totalAfter, totalBefore - 1);
-    });
-
-    test('HighlightsTreeProvider: editHighlight', () => {
-        treeProvider.editHighlight('test', 'updated');
-        const total = treeProvider.getTotalHighlights();
-        assert.strictEqual(total, 3); // 数量不变
-    });
-
-    test('HighlightsTreeProvider: clearAllHighlights', () => {
-        treeProvider.clearAllHighlights();
-        const total = treeProvider.getTotalHighlights();
-        assert.strictEqual(total, 0);
-    });
-
-    test('HighlightsTreeProvider: 移除不存在的高亮', () => {
-        const totalBefore = treeProvider.getTotalHighlights();
-        treeProvider.removeHighlight('nonexistent');
-        const totalAfter = treeProvider.getTotalHighlights();
-        assert.strictEqual(totalAfter, totalBefore); // 数量不变
-    });
-
-    test('HighlightsTreeProvider: 编辑不存在的高亮', () => {
-        const totalBefore = treeProvider.getTotalHighlights();
-        treeProvider.editHighlight('nonexistent', 'updated');
-        const totalAfter = treeProvider.getTotalHighlights();
-        assert.strictEqual(totalAfter, totalBefore); // 数量不变
-    });
-
-    test('HighlightsTreeProvider: 空列表时获取子元素', async () => {
-        // 清空所有高亮
-        treeProvider.clearAllHighlights();
-
-        const children = await treeProvider.getChildren();
-        assert.ok(Array.isArray(children));
-        // 应该返回 "No highlights" 提示项
-        if (children.length > 0) {
-            assert.ok(children[0].label?.toString().includes('No highlights'));
-        }
-    });
-
     test('HighlightsTreeProvider: no active editor shows saved rules', async () => {
         getMockVSCodeWindow().activeTextEditor = undefined;
 

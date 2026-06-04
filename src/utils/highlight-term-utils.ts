@@ -152,6 +152,18 @@ export function getHighlightScopeLabel(term: HighlightedTerm): string {
     }
 }
 
+/**
+ * 共享配置读取
+ * 消除多个模块重复读取相同配置的问题
+ */
+export function getConfig(): { caseSensitive: boolean; annotationEnabled: boolean } {
+    const config = vscode.workspace.getConfiguration('persistent-highlighter');
+    return {
+        caseSensitive: config.get<boolean>('caseSensitive', false),
+        annotationEnabled: config.get<boolean>('annotationEnabled', true)
+    };
+}
+
 export function getHighlightMatchModeLabel(term: HighlightedTerm): string {
     switch (term.matchMode) {
         case "substring":

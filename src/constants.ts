@@ -239,15 +239,23 @@ export const presetColorPalette: PresetColor[] = [
     { hex: "#F5B7B1", name: "Rose" }
 ];
 
+let decorationTypesCache: vscode.TextEditorDecorationType[] | undefined;
+
 /**
  * 为颜色池中的每种颜色创建 DecorationType
+ * 使用惰性初始化避免模块级副作用
  */
-export const decorationTypes = colorPool.map((color) =>
-    vscode.window.createTextEditorDecorationType({
-        light: { ...color.light, color: "#000000" },
-        dark: { ...color.dark, color: "#FFFFFF" },
-        borderRadius: "2px",
-        overviewRulerColor: color.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
-        overviewRulerLane: vscode.OverviewRulerLane.Full
-    })
-);
+export function getDecorationTypes(): readonly vscode.TextEditorDecorationType[] {
+    if (!decorationTypesCache) {
+        decorationTypesCache = colorPool.map((color) =>
+            vscode.window.createTextEditorDecorationType({
+                light: { ...color.light, color: "#000000" },
+                dark: { ...color.dark, color: "#FFFFFF" },
+                borderRadius: "2px",
+                overviewRulerColor: color.light.backgroundColor.replace('rgba', 'rgb').replace(/[\d.]+\)$/, '1)'),
+                overviewRulerLane: vscode.OverviewRulerLane.Full
+            })
+        );
+    }
+    return decorationTypesCache;
+}

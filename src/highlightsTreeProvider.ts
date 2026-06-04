@@ -5,6 +5,7 @@ import type { HighlightMatchLocation, HighlightedTerm } from './types';
 import { WorkspaceMatchUtils } from './utils/workspace-match-utils';
 import {
     doesHighlightApplyToDocument,
+    getConfig,
     getHighlightMatchModeLabel,
     getHighlightScopeLabel,
     normalizeHighlightedTerms
@@ -114,7 +115,8 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                     return [];
                 }
 
-                const matches = await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, this.getCaseSensitiveConfig());
+                const { caseSensitive } = getConfig();
+                const matches = await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive);
                 return matches.map((match) => new MatchLocationItem(match));
             }
 
@@ -161,8 +163,9 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     }
 
     private *filteredTerms(terms: HighlightedTerm[]): Generator<HighlightedTerm, void, undefined> {
+        const { annotationEnabled } = getConfig();
         for (const term of terms) {
-            if (term.isAnnotationTag && !this.getAnnotationEnabledConfig()) {
+            if (term.isAnnotationTag && !annotationEnabled) {
                 continue;
             }
             if (!term.isAnnotationTag && term.enabled === false) {
@@ -179,7 +182,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
     }[]> {
         const terms = this.getTerms();
         const currentEditor = this.currentEditor;
-        const caseSensitive = this.getCaseSensitiveConfig();
+        const { caseSensitive } = getConfig();
         const workspaceFolder = WorkspaceMatchUtils.getCurrentWorkspaceFolder(currentEditor);
         const result: {
             term: HighlightedTerm;
@@ -214,46 +217,10 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         return result;
     }
 
-    private getCaseSensitiveConfig(): boolean {
-        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-    }
-
-    private getAnnotationEnabledConfig(): boolean {
-        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('annotationEnabled', true);
-    }
-
     private getTerms(): HighlightedTerm[] {
         const terms = this.context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
-        return normalizeHighlightedTerms(terms, this.getCaseSensitiveConfig());
-    }
-
-    removeHighlight(identifier: string): void {
-        const terms = this.getTerms();
-        const termIndex = terms.findIndex((t) => t.id === identifier || t.text === identifier);
-        if (termIndex !== -1) {
-            terms.splice(termIndex, 1);
-            this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-            this.refresh();
-        }
-    }
-
-    editHighlight(oldText: string, newText: string): void {
-        const terms = this.getTerms();
-        const termIndex = terms.findIndex(t => t.text === oldText);
-        if (termIndex !== -1) {
-            terms[termIndex].text = newText;
-            this.context.globalState.update(GLOBAL_STATE_KEY, terms);
-            this.refresh();
-        }
-    }
-
-    clearAllHighlights(): void {
-        this.context.globalState.update(GLOBAL_STATE_KEY, []);
-        this.refresh();
-    }
-
-    getTotalHighlights(): number {
-        return this.getTerms().length;
+        const { caseSensitive } = getConfig();
+        return normalizeHighlightedTerms(terms, caseSensitive);
     }
 
     /**

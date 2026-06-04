@@ -10,28 +10,24 @@ import type {
     HighlightedTerm
 } from "./types";
 import {
-    ANNOTATION_TAG_COLOR_ID,
     CUSTOM_COLOR_ID_OFFSET,
-    DEFAULT_ANNOTATION_TAGS,
     GLOBAL_STATE_KEY,
     colorPool,
     presetColorPalette
 } from "./constants";
-import { DecoratorManager } from "./utils/decorator-manager";
+import { DecoratorManager, type IDecoratorManager } from "./utils/decorator-manager";
 import { EditorUtils } from "./utils/editor-utils";
 import { ColorUtils } from "./utils/color-utils";
 import {
     doesHighlightApplyToDocument,
-    getAnnotationTagColorId,
-    getAnnotationTagIdentity,
+    getConfig,
     getHighlightMatchModeLabel,
     getHighlightScopeLabel,
     highlightedTermsNeedMigration,
-    isBuiltInAnnotationTagText,
-    isValidAnnotationTagColorId,
     normalizeHighlightedTerm,
     normalizeHighlightedTerms
 } from "./utils/highlight-term-utils";
+import { AnnotationTagManager } from "./utils/annotation-tag-manager";
 import { createHighlightRegex } from "./utils/regex-cache";
 
 type HighlightRuleAction =
@@ -48,13 +44,14 @@ type HighlightRuleAction =
 export class HighlightManager implements vscode.Disposable {
     readonly #context: vscode.ExtensionContext;
     readonly #treeProvider: HighlightsTreeProvider | undefined;
-    readonly #decoratorManager: DecoratorManager;
+    readonly #decoratorManager: IDecoratorManager;
+    readonly #annotationTagManager = new AnnotationTagManager();
     readonly #highlightCache = new Map<vscode.TextDocument, CachedHighlight[]>();
 
-    constructor(context: vscode.ExtensionContext, treeProvider?: HighlightsTreeProvider) {
+    constructor(context: vscode.ExtensionContext, treeProvider?: HighlightsTreeProvider, decoratorManager?: IDecoratorManager) {
         this.#context = context;
         this.#treeProvider = treeProvider;
-        this.#decoratorManager = new DecoratorManager();
+        this.#decoratorManager = decoratorManager ?? new DecoratorManager();
 
         this.#registerEventListeners();
         void this.#initializeStoredTerms();
@@ -152,7 +149,7 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         const terms = this.#getTerms();
-        const caseSensitive = this.#getCaseSensitiveConfig();
+        const caseSensitive = getConfig().caseSensitive;
         const trimmedText = textToHighlight.trim();
 
         if (terms.some((t) => EditorUtils.textEquals(t.text, trimmedText, caseSensitive))) {
@@ -230,7 +227,7 @@ export class HighlightManager implements vscode.Disposable {
 
     #toggleHighlightForEditor(editor: vscode.TextEditor): void {
         const currentPosition = editor.selection.active;
-        const caseSensitive = this.#getCaseSensitiveConfig();
+        const caseSensitive = getConfig().caseSensitive;
         const terms = this.#getApplicableTerms(editor.document, true);
         const highlightsAtPosition = EditorUtils.findHighlightsAtPosition(
             editor,
@@ -339,11 +336,11 @@ export class HighlightManager implements vscode.Disposable {
                 text,
                 colorId,
                 enabled: true,
-                caseSensitive: this.#getCaseSensitiveConfig(),
+                caseSensitive: getConfig().caseSensitive,
                 matchMode: "wholeWord",
                 scopeType: "global"
             },
-            this.#getCaseSensitiveConfig()
+            getConfig().caseSensitive
         );
     }
 
@@ -377,93 +374,15 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     async #syncAnnotationTagProfile(): Promise<void> {
-        const tags = this.#getConfiguredAnnotationTags();
-        if (tags.length === 0) {
-            return;
-        }
-
-        const tagStates = this.#getAnnotationTagStates();
         const terms = this.#getTerms();
-        let changed = false;
-
-        for (const tag of tags) {
-            const identity = this.#isBuiltInAnnotationTag(tag) ? getAnnotationTagIdentity(tag) : undefined;
-            const state = identity ? tagStates[identity] : undefined;
-
-            // Skip "removed" tags entirely
-            if (state === "removed") {
-                const existingIndex = this.#findPreferredAnnotationRuleIndex(terms, tag);
-                if (existingIndex !== -1) {
-                    terms.splice(existingIndex, 1);
-                    changed = true;
-                }
-                continue;
-            }
-
-            let existingIndex = this.#findPreferredAnnotationRuleIndex(terms, tag);
-
-            if (existingIndex === -1) {
-                terms.push(this.#createAnnotationTagHighlight(tag, state !== "disabled"));
-                changed = true;
-                continue;
-            }
-
-            for (const duplicateIndex of this.#findDuplicateAnnotationRuleIndexes(terms, tag, existingIndex)) {
-                terms.splice(duplicateIndex, 1);
-                if (duplicateIndex < existingIndex) {
-                    existingIndex--;
-                }
-                changed = true;
-            }
-
-            const existing = terms[existingIndex];
-            const semanticColorId = this.#isBuiltInAnnotationTag(tag) ? getAnnotationTagColorId(tag) : undefined;
-            const needsAnnotationColor = typeof semanticColorId === "number"
-                ? existing.annotationColorId !== semanticColorId
-                : !isValidAnnotationTagColorId(existing.annotationColorId);
-            const needsTextUpgrade = this.#isBuiltInAnnotationTag(tag) && !EditorUtils.textEquals(existing.text, tag, false);
-            const targetEnabled = state !== "disabled";
-            if (existing.enabled !== targetEnabled || existing.isAnnotationTag !== true || needsAnnotationColor || needsTextUpgrade) {
-                terms[existingIndex] = normalizeHighlightedTerm(
-                    {
-                        ...existing,
-                        text: needsTextUpgrade ? tag : existing.text,
-                        enabled: targetEnabled,
-                        isAnnotationTag: true,
-                        annotationColorId: needsAnnotationColor ? semanticColorId : existing.annotationColorId
-                    },
-                    this.#getCaseSensitiveConfig()
-                );
-                changed = true;
-            }
+        const updatedTerms = this.#annotationTagManager.syncProfile(terms, getConfig().caseSensitive);
+        if (updatedTerms !== terms) {
+            await this.#updateGlobalState(updatedTerms);
         }
-
-        if (!changed) {
-            return;
-        }
-
-        await this.#updateGlobalState(terms);
-    }
-
-    #getAnnotationTagStates(): Record<string, "enabled" | "disabled" | "removed"> {
-        return vscode.workspace
-            .getConfiguration('persistent-highlighter')
-            .get<Record<string, "enabled" | "disabled" | "removed">>('annotationTagStates', {});
-    }
-
-    #setAnnotationTagState(tagIdentity: string, state: "enabled" | "disabled" | "removed"): void {
-        const config = vscode.workspace.getConfiguration('persistent-highlighter');
-        const current = config.get<Record<string, string>>('annotationTagStates', {});
-        current[tagIdentity] = state;
-        void config.update('annotationTagStates', current, vscode.ConfigurationTarget.Global);
     }
 
     toggleAnnotationTag(tagText: string): void {
-        const identity = getAnnotationTagIdentity(tagText);
-        const states = this.#getAnnotationTagStates();
-        const current = states[identity] ?? "enabled";
-        const next = current === "enabled" ? "disabled" : "enabled";
-        this.#setAnnotationTagState(identity, next);
+        this.#annotationTagManager.toggleTag(tagText);
         void this.#syncAnnotationTagProfile();
     }
 
@@ -515,14 +434,14 @@ export class HighlightManager implements vscode.Disposable {
                 text,
                 colorId: CUSTOM_COLOR_ID_OFFSET,
                 enabled: currentRule?.enabled ?? true,
-                caseSensitive: currentRule?.caseSensitive ?? this.#getCaseSensitiveConfig(),
+                caseSensitive: currentRule?.caseSensitive ?? getConfig().caseSensitive,
                 matchMode: currentRule?.matchMode ?? "wholeWord",
                 scopeType: currentRule?.scopeType ?? "global",
                 scopeValue: currentRule?.scopeValue,
                 isCustomColor: true,
                 customColor: color
             },
-            this.#getCaseSensitiveConfig()
+            getConfig().caseSensitive
         );
 
         if (termIndex !== -1) {
@@ -548,7 +467,7 @@ export class HighlightManager implements vscode.Disposable {
             return;
         }
 
-        const caseSensitive = this.#getCaseSensitiveConfig();
+        const caseSensitive = getConfig().caseSensitive;
         const matchedRule = this.#getApplicableTerms(editor.document, false)
             .find((term) => EditorUtils.textEquals(term.text, text, caseSensitive));
 
@@ -638,7 +557,7 @@ export class HighlightManager implements vscode.Disposable {
             return [];
         }
 
-        const caseSensitive = this.#getCaseSensitiveConfig();
+        const caseSensitive = getConfig().caseSensitive;
         const allHighlights = EditorUtils.findAllHighlightsInEditor(editor, terms, caseSensitive);
         allHighlights.sort((a: HighlightPosition, b: HighlightPosition) => a.index - b.index);
         return allHighlights;
@@ -673,7 +592,7 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         const highlights: CachedHighlight[] = [];
-        const caseSensitive = this.#getCaseSensitiveConfig();
+        const caseSensitive = getConfig().caseSensitive;
 
         for (const term of terms) {
             const ranges = EditorUtils.findHighlightRanges(editor.document, term, caseSensitive);
@@ -696,7 +615,7 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     #getApplicableTerms(document: vscode.TextDocument, includeDisabled: boolean): HighlightedTerm[] {
-        const annotationEnabled = this.#getAnnotationEnabledConfig();
+        const annotationEnabled = getConfig().annotationEnabled;
         return this.#getTerms().filter((term) => {
             if (!doesHighlightApplyToDocument(term, document)) {
                 return false;
@@ -713,11 +632,11 @@ export class HighlightManager implements vscode.Disposable {
 
     async #migrateStoredTerms(): Promise<void> {
         const rawTerms = this.#context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
-        if (!highlightedTermsNeedMigration(rawTerms, this.#getCaseSensitiveConfig())) {
+        if (!highlightedTermsNeedMigration(rawTerms, getConfig().caseSensitive)) {
             return;
         }
 
-        const normalizedTerms = normalizeHighlightedTerms(rawTerms, this.#getCaseSensitiveConfig());
+        const normalizedTerms = normalizeHighlightedTerms(rawTerms, getConfig().caseSensitive);
         await this.#updateGlobalState(normalizedTerms);
     }
 
@@ -794,12 +713,12 @@ export class HighlightManager implements vscode.Disposable {
             case "toggleEnabled":
                 return normalizeHighlightedTerm(
                     { ...term, enabled: !(term.enabled ?? true) },
-                    this.#getCaseSensitiveConfig()
+                    getConfig().caseSensitive
                 );
             case "toggleCaseSensitive":
                 return normalizeHighlightedTerm(
                     { ...term, caseSensitive: !term.caseSensitive },
-                    this.#getCaseSensitiveConfig()
+                    getConfig().caseSensitive
                 );
             case "changeMatchMode":
                 return this.#changeRuleMatchMode(term);
@@ -830,7 +749,7 @@ export class HighlightManager implements vscode.Disposable {
                 ...term,
                 text: newText.trim()
             },
-            this.#getCaseSensitiveConfig()
+            getConfig().caseSensitive
         );
     }
 
@@ -911,7 +830,7 @@ export class HighlightManager implements vscode.Disposable {
                 scopeType: selectedScope.scopeType,
                 scopeValue
             },
-            this.#getCaseSensitiveConfig()
+            getConfig().caseSensitive
         );
     }
 
@@ -989,7 +908,7 @@ export class HighlightManager implements vscode.Disposable {
                 ...term,
                 matchMode: selected.matchMode
             },
-            this.#getCaseSensitiveConfig()
+            getConfig().caseSensitive
         );
     }
 
@@ -1054,82 +973,7 @@ export class HighlightManager implements vscode.Disposable {
      */
     #getTerms(): HighlightedTerm[] {
         const terms = this.#context.globalState.get<HighlightedTerm[]>(GLOBAL_STATE_KEY, []);
-        return normalizeHighlightedTerms(terms, this.#getCaseSensitiveConfig());
-    }
-
-    #getConfiguredAnnotationTags(): string[] {
-        const configuredTags = vscode.workspace
-            .getConfiguration('persistent-highlighter')
-            .get<string[]>('annotationTags', []);
-        const uniqueTags = new Map<string, string>();
-
-        for (const tag of [...DEFAULT_ANNOTATION_TAGS, ...configuredTags]) {
-            const normalizedTag = typeof tag === "string" ? tag.trim() : "";
-            if (normalizedTag.length === 0) {
-                continue;
-            }
-
-            const key = this.#isBuiltInAnnotationTag(normalizedTag)
-                ? `builtin:${getAnnotationTagIdentity(normalizedTag)}`
-                : `custom:${normalizedTag.toLocaleLowerCase()}`;
-            if (!uniqueTags.has(key)) {
-                uniqueTags.set(key, normalizedTag);
-            }
-        }
-
-        return [...uniqueTags.values()];
-    }
-
-    #areEquivalentAnnotationRules(term: HighlightedTerm, tag: string): boolean {
-        if (this.#isBuiltInAnnotationTag(tag) && this.#isBuiltInAnnotationTag(term.text)) {
-            return getAnnotationTagIdentity(term.text) === getAnnotationTagIdentity(tag);
-        }
-
-        return EditorUtils.textEquals(term.text, tag, false);
-    }
-
-    #findPreferredAnnotationRuleIndex(terms: HighlightedTerm[], tag: string): number {
-        const equivalentIndexes = terms.reduce<number[]>((indexes, term, index) => {
-            if (this.#areEquivalentAnnotationRules(term, tag)) {
-                indexes.push(index);
-            }
-            return indexes;
-        }, []);
-
-        return equivalentIndexes.find((index) => EditorUtils.textEquals(terms[index].text, tag, false))
-            ?? equivalentIndexes[0]
-            ?? -1;
-    }
-
-    #findDuplicateAnnotationRuleIndexes(
-        terms: HighlightedTerm[],
-        tag: string,
-        preferredIndex: number
-    ): number[] {
-        return terms
-            .map((term, index) => ({ term, index }))
-            .filter(({ term, index }) => index !== preferredIndex && this.#areEquivalentAnnotationRules(term, tag))
-            .map(({ index }) => index)
-            .sort((left, right) => right - left);
-    }
-
-    #isBuiltInAnnotationTag(text: string): boolean {
-        return isBuiltInAnnotationTagText(text);
-    }
-
-    #createAnnotationTagHighlight(tag: string, enabled: boolean = true): HighlightedTerm {
-        return normalizeHighlightedTerm(
-            {
-                text: tag,
-                colorId: ANNOTATION_TAG_COLOR_ID,
-                enabled,
-                caseSensitive: false,
-                matchMode: "wholeWord",
-                scopeType: "global",
-                isAnnotationTag: true
-            },
-            this.#getCaseSensitiveConfig()
-        );
+        return normalizeHighlightedTerms(terms, getConfig().caseSensitive);
     }
 
     #validateMatchLocation(input: unknown): HighlightMatchLocation | undefined {
@@ -1157,17 +1001,6 @@ export class HighlightManager implements vscode.Disposable {
         }
 
         return candidate as HighlightMatchLocation;
-    }
-
-    /**
-     * 获取大小写敏感配置
-     */
-    #getCaseSensitiveConfig(): boolean {
-        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('caseSensitive', false);
-    }
-
-    #getAnnotationEnabledConfig(): boolean {
-        return vscode.workspace.getConfiguration('persistent-highlighter').get<boolean>('annotationEnabled', true);
     }
 
     /**
@@ -1202,7 +1035,7 @@ export class HighlightManager implements vscode.Disposable {
         document?: vscode.TextDocument,
         excludeId?: string
     ): number {
-        const caseSensitive = this.#getCaseSensitiveConfig();
+        const caseSensitive = getConfig().caseSensitive;
         return terms.findIndex((term) => {
             if (excludeId && term.id === excludeId) {
                 return false;

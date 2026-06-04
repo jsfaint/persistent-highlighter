@@ -1,13 +1,25 @@
 import * as vscode from "vscode";
 import type { AnnotationTagColorDefinition, HighlightColor, CachedHighlight } from "../types";
-import { annotationTagColorPalette, decorationTypes, colorPool } from "../constants";
+import { annotationTagColorPalette, getDecorationTypes, colorPool } from "../constants";
 import { getAnnotationTagColorId } from "./highlight-term-utils";
+
+/**
+ * 装饰器管理器接口
+ * 为测试和依赖注入提供 seam
+ */
+export interface IDecoratorManager {
+    clearAllEditorDecorations(editor: vscode.TextEditor): void;
+    applyHighlightsToEditor(editor: vscode.TextEditor, highlights: CachedHighlight[]): void;
+    registerCustomDecorationType(text: string, color: HighlightColor): void;
+    disposeDecorationsForText(text: string): void;
+    dispose(): void;
+}
 
 /**
  * 装饰器管理器
  * 负责管理所有文本装饰器的创建、应用和清理
  */
-export class DecoratorManager {
+export class DecoratorManager implements IDecoratorManager {
     private customDecorationTypes = new Map<string, vscode.TextEditorDecorationType>();
     private annotationTagDecorationTypes = new Map<number, vscode.TextEditorDecorationType>();
 
@@ -21,7 +33,7 @@ export class DecoratorManager {
      */
     public clearAllEditorDecorations(editor: vscode.TextEditor): void {
         // 清除内置颜色装饰器
-        decorationTypes.forEach((dt) => editor.setDecorations(dt, []));
+        getDecorationTypes().forEach((dt) => editor.setDecorations(dt, []));
         this.annotationTagDecorationTypes.forEach((dt) => editor.setDecorations(dt, []));
 
         // 清除自定义颜色装饰器
@@ -130,8 +142,9 @@ export class DecoratorManager {
         colorHighlights: Map<number, vscode.Range[]>
     ): void {
         colorHighlights.forEach((ranges, colorId) => {
-            if (colorId < decorationTypes.length) {
-                editor.setDecorations(decorationTypes[colorId], ranges);
+            const types = getDecorationTypes();
+            if (colorId < types.length) {
+                editor.setDecorations(types[colorId], ranges);
             }
         });
     }
