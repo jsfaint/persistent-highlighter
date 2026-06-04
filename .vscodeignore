@@ -46,3 +46,5 @@ tsconfig.test.json
 .opencode/
 .agents/
 AGENTS.md
+
+.codegraph/
