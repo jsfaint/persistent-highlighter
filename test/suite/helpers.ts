@@ -99,27 +99,37 @@ export function createMockContext(): MockExtensionContext {
  */
 export function createMockDocument(content: string, uri?: string): vscode.TextDocument {
     const resolvedUri = vscode.Uri.parse(uri || 'file:///mock/document.txt');
+
+    const positionAt = (offset: number) => {
+        const text = content.substring(0, offset);
+        const lines = text.split('\n');
+        const line = lines.length - 1;
+        const character = lines[lines.length - 1].length;
+        return new vscode.Position(line, character);
+    };
+
+    const offsetAt = (position: vscode.Position) => {
+        const lines = content.split('\n');
+        let offset = 0;
+        for (let i = 0; i < position.line; i++) {
+            offset += lines[i].length + 1;
+        }
+        return offset + position.character;
+    };
+
     const mockDocument = {
-        getText: () => content,
+        getText: (range?: vscode.Range) => {
+            if (!range) {
+                return content;
+            }
+            return content.substring(offsetAt(range.start), offsetAt(range.end));
+        },
         languageId: 'typescript',
         uri: resolvedUri,
         fileName: uri || 'mock-document.txt',
         lineCount: content.split('\n').length,
-        positionAt: (offset: number) => {
-            const text = content.substring(0, offset);
-            const lines = text.split('\n');
-            const line = lines.length - 1;
-            const character = lines[lines.length - 1].length;
-            return new vscode.Position(line, character);
-        },
-        offsetAt: (position: vscode.Position) => {
-            const lines = content.split('\n');
-            let offset = 0;
-            for (let i = 0; i < position.line; i++) {
-                offset += lines[i].length + 1;
-            }
-            return offset + position.character;
-        },
+        positionAt,
+        offsetAt,
         getWordRangeAtPosition: () => undefined,
         lineAt: (lineOrPosition: number | vscode.Position) => {
             const lineNumber = typeof lineOrPosition === 'number' ? lineOrPosition : lineOrPosition.line;

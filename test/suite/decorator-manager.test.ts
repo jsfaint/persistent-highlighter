@@ -146,6 +146,28 @@ suite("DecoratorManager Suite", () => {
         assert.strictEqual(customDecorationTypes.size, 0, "装饰器应该被清理");
     });
 
+    test("disposeDecorationsForText 不应误删前缀匹配的装饰器", () => {
+        const colorA: ColorDefinition = {
+            light: { backgroundColor: "rgba(255, 0, 0, 0.5)" },
+            dark: { backgroundColor: "rgba(255, 0, 0, 0.3)" }
+        };
+        const colorB: ColorDefinition = {
+            light: { backgroundColor: "rgba(0, 255, 0, 0.5)" },
+            dark: { backgroundColor: "rgba(0, 255, 0, 0.3)" }
+        };
+
+        decoratorManager.registerCustomDecorationType("foo", colorA);
+        decoratorManager.registerCustomDecorationType("foobar", colorB);
+        decoratorManager.disposeDecorationsForText("foo");
+
+        const customDecorationTypes = decoratorManager["customDecorationTypes"];
+        assert.strictEqual(customDecorationTypes.size, 1, "foobar 的装饰器应保留");
+        assert.ok(
+            [...customDecorationTypes.keys()][0].startsWith("foobar_"),
+            "应保留 foobar 的装饰器 key"
+        );
+    });
+
     test("dispose 应该释放所有资源", () => {
         const customColor: ColorDefinition = {
             light: { backgroundColor: "rgba(255, 0, 0, 0.5)" },
