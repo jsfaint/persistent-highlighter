@@ -40,6 +40,19 @@ export class WorkspaceMatchUtils {
         return vscode.workspace.workspaceFolders?.at(0);
     }
 
+    /**
+     * 获取匹配统计涉及的所有工作区文件夹
+     * 有编辑器时限定其所在 folder；无编辑器时遍历全部 folder，避免多根工作区统计不全
+     */
+    public static getWorkspaceFolders(editor?: vscode.TextEditor): readonly vscode.WorkspaceFolder[] {
+        if (editor) {
+            const folder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+            return folder ? [folder] : [];
+        }
+
+        return vscode.workspace.workspaceFolders ?? [];
+    }
+
     public static async findMatchesForTerm(
         term: HighlightedTerm,
         workspaceFolder: vscode.WorkspaceFolder,

@@ -99,6 +99,13 @@ export class AnnotationTagManager {
     }
 
     /**
+     * 启用标签（用于 toggleHighlight 命中 disabled 标签时的恢复）
+     */
+    enableTag(tagText: string): void {
+        this.setTagState(getAnnotationTagIdentity(tagText), "enabled");
+    }
+
+    /**
      * 获取所有标签状态
      */
     getTagStates(): Record<string, AnnotationTagState> {
