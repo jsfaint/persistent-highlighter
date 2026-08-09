@@ -110,13 +110,16 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
                     return [];
                 }
 
-                const workspaceFolder = WorkspaceMatchUtils.getCurrentWorkspaceFolder(this.currentEditor);
-                if (!workspaceFolder) {
+                const workspaceFolders = WorkspaceMatchUtils.getWorkspaceFolders(this.currentEditor);
+                if (workspaceFolders.length === 0) {
                     return [];
                 }
 
                 const { caseSensitive } = getConfig();
-                const matches = await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive);
+                const matches: HighlightMatchLocation[] = [];
+                for (const folder of workspaceFolders) {
+                    matches.push(...await WorkspaceMatchUtils.findMatchesForTerm(term, folder, caseSensitive));
+                }
                 return matches.map((match) => new MatchLocationItem(match));
             }
 
@@ -183,7 +186,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         const terms = this.getTerms();
         const currentEditor = this.currentEditor;
         const { caseSensitive } = getConfig();
-        const workspaceFolder = WorkspaceMatchUtils.getCurrentWorkspaceFolder(currentEditor);
+        const workspaceFolders = WorkspaceMatchUtils.getWorkspaceFolders(currentEditor);
         const result: {
             term: HighlightedTerm;
             activeFileMatchCount: number | undefined;
@@ -192,9 +195,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
 
         if (!currentEditor) {
             for (const term of this.filteredTerms(terms)) {
-                const workspaceMatchCount = workspaceFolder
-                    ? (await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive)).length
-                    : 0;
+                const workspaceMatchCount = await this.countWorkspaceMatches(term, workspaceFolders, caseSensitive);
                 result.push({ term, activeFileMatchCount: undefined, workspaceMatchCount });
             }
 
@@ -205,9 +206,7 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
             const activeFileMatchCount = doesHighlightApplyToDocument(term, currentEditor.document)
                 ? EditorUtils.findHighlightRanges(currentEditor.document, term, caseSensitive).length
                 : 0;
-            const workspaceMatchCount = workspaceFolder
-                ? (await WorkspaceMatchUtils.findMatchesForTerm(term, workspaceFolder, caseSensitive)).length
-                : 0;
+            const workspaceMatchCount = await this.countWorkspaceMatches(term, workspaceFolders, caseSensitive);
 
             if (activeFileMatchCount > 0 || workspaceMatchCount > 0) {
                 result.push({ term, activeFileMatchCount, workspaceMatchCount });
@@ -215,6 +214,21 @@ export class HighlightsTreeProvider implements vscode.TreeDataProvider<Highlight
         }
 
         return result;
+    }
+
+    /**
+     * 跨所有工作区文件夹统计匹配数（多根工作区求和）
+     */
+    private async countWorkspaceMatches(
+        term: HighlightedTerm,
+        folders: readonly vscode.WorkspaceFolder[],
+        caseSensitive: boolean
+    ): Promise<number> {
+        let count = 0;
+        for (const folder of folders) {
+            count += (await WorkspaceMatchUtils.findMatchesForTerm(term, folder, caseSensitive)).length;
+        }
+        return count;
     }
 
     private getTerms(): HighlightedTerm[] {

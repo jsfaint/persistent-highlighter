@@ -197,7 +197,24 @@ The extension offers 18 carefully selected preset colors:
 
 ## Recent Updates
 
-### Version 0.4.0
+### Version 0.4.1
+
+- **Security**: Reject dangerous regex patterns (nested quantifiers / repeated alternation) that could freeze the editor, plus a per-scan execution budget as a second line of defense
+- **Bug Fixes**:
+  - Highlight rule IDs no longer collide for different-cased texts (`Foo` vs `foo`); legacy stored IDs are migrated automatically
+  - Removing/editing a custom-color rule no longer wrongly disposes decoration types for longer texts with the same prefix (`foo` vs `foobar`)
+  - Toggling a disabled rule now re-enables it instead of silently deleting it (annotation tags restore via their tag state)
+  - Removing a highlight with a selection that includes leading/trailing whitespace (e.g. full-line selection) now works
+  - Custom colors are rejected for annotation tags instead of being silently ignored
+  - `Clear All Highlights` no longer claims "all cleared" when only annotation tags remain
+  - Custom-color decorations are properly released when toggled off
+  - Sidebar refresh is debounced to avoid spawning ripgrep on every keystroke
+  - Workspace match counts now cover all folders in multi-root workspaces when no editor is active
+  - Zero-width regex matches at the end of text are no longer dropped
+- **Cleanup**: Removed dead code (`#highlightCache`, `findWholeWord`) and their tests
+- **Testing**:
+  - Added regression tests for all of the above
+  - Test suite now passes with **109 tests**
 
 - **Code Refactoring**:
   - Extracted `AnnotationTagManager` from `HighlightManager` for single-responsibility separation

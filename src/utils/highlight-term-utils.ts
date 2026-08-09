@@ -10,7 +10,15 @@ const DEFAULT_MATCH_MODE: HighlightMatchMode = "wholeWord";
 const DEFAULT_SCOPE_TYPE: HighlightScopeType = "global";
 
 function createHighlightId(text: string): string {
-    return `highlight:${encodeURIComponent(text.toLowerCase())}`;
+    return `highlight:${encodeURIComponent(text)}`;
+}
+
+/**
+ * 旧版本 id 用小写编码生成，导致 caseSensitive 模式下 "Foo"/"foo" 等规则 id 碰撞。
+ * 检测旧格式 id（id 等于按小写文本生成的格式）并触发重新生成。
+ */
+function isLegacyHighlightId(id: string, text: string): boolean {
+    return id === `highlight:${encodeURIComponent(text.toLowerCase())}`;
 }
 
 function isHighlightMatchMode(value: unknown): value is HighlightMatchMode {
@@ -96,7 +104,9 @@ export function normalizeHighlightedTerm(term: HighlightedTerm, defaultCaseSensi
 
     return {
         ...term,
-        id: typeof term.id === "string" && term.id.length > 0 ? term.id : createHighlightId(trimmedText),
+        id: typeof term.id === "string" && term.id.length > 0
+            ? (isLegacyHighlightId(term.id, trimmedText) ? createHighlightId(trimmedText) : term.id)
+            : createHighlightId(trimmedText),
         text: trimmedText,
         enabled: term.enabled ?? true,
         caseSensitive: isBuiltInAnnotationTag ? true : getHighlightCaseSensitive(term, defaultCaseSensitive),

@@ -1,8 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import {
-    createHighlightRegex,
-    findWholeWord
+    createHighlightRegex
 } from '../../src/utils/regex-cache';
 import { HighlightManager } from '../../src/highlight-manager';
 import { EditorUtils } from '../../src/utils/editor-utils';
@@ -88,34 +87,6 @@ suite('Extension 核心功能测试', () => {
         assert.throws(() => {
             createHighlightRegex('', false);
         }, /Search text cannot be empty/);
-    });
-
-    test('findWholeWord: 查找完整单词', () => {
-        const text = 'This is a test document for testing';
-        const index = findWholeWord(text, 'test', false);
-        assert.ok(index !== -1);
-        assert.strictEqual(text.substring(index, index + 4), 'test');
-    });
-
-    test('findWholeWord: 不应该匹配部分单词', () => {
-        const text = 'testing test tester';
-        const index = findWholeWord(text, 'test', false);
-        const match = text.substring(index, index + 4);
-        assert.strictEqual(match, 'test');
-        assert.notStrictEqual(index, 0); // 不应该匹配 'testing'
-    });
-
-    test('findWholeWord: 中文文本匹配', () => {
-        const text = '这是一个测试文档';
-        const index = findWholeWord(text, '测试', false);
-        assert.ok(index !== -1);
-        assert.strictEqual(text.substring(index, index + 2), '测试');
-    });
-
-    test('findWholeWord: 找不到返回 -1', () => {
-        const text = 'This is a document';
-        const index = findWholeWord(text, 'nonexistent', false);
-        assert.strictEqual(index, -1);
     });
 
     test('HighlightManager: 创建实例', () => {
@@ -385,20 +356,144 @@ suite('Extension 核心功能测试', () => {
         assert.strictEqual(match[0], 'NOTE:');
     });
 
-    test('findWholeWord: 大小写敏感查找', () => {
-        const text = 'Test test TEST';
-        const index = findWholeWord(text, 'test', true);
-        assert.ok(index !== -1);
-        const match = text.substring(index, index + 4);
-        assert.strictEqual(match, 'test');
+    test('HighlightManager: toggleHighlight 重新启用 disabled 规则而非删除', async () => {
+        const disabledRule: HighlightedTerm = {
+            id: 'highlight:test',
+            text: 'test',
+            colorId: 0,
+            enabled: false,
+            caseSensitive: false,
+            matchMode: 'wholeWord',
+            scopeType: 'global'
+        };
+        let storedTerms: HighlightedTerm[] = [disabledRule];
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        // 选中文档中的 "test"（偏移 10-14）
+        (mockEditor as unknown as { selection: vscode.Selection }).selection = new vscode.Selection(0, 10, 0, 14);
+        mockWindow.activeTextEditor = mockEditor;
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        manager.toggleHighlight();
+        await waitForAsyncWork();
+
+        // 初始化会同步全部内置标签，断言针对目标规则
+        const testRule = storedTerms.find((term) => term.text === 'test');
+        assert.ok(testRule, '规则不应被删除');
+        assert.strictEqual(testRule.enabled, true, 'disabled 规则应被重新启用');
     });
 
-    test('findWholeWord: 大小写不敏感查找', () => {
-        const text = 'Test test TEST';
-        const index = findWholeWord(text, 'TEST', false);
-        assert.ok(index !== -1);
-        const match = text.substring(index, index + 4);
-        assert.strictEqual(match, 'Test');
+    test('HighlightManager: removeHighlight 可移除带首尾空白的选区', async () => {
+        const rule: HighlightedTerm = {
+            id: 'highlight:test',
+            text: 'test',
+            colorId: 0,
+            enabled: true,
+            caseSensitive: false,
+            matchMode: 'wholeWord',
+            scopeType: 'global'
+        };
+        let storedTerms: HighlightedTerm[] = [rule];
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        // 选中 " test "（含首尾空格，偏移 9-15）
+        (mockEditor as unknown as { selection: vscode.Selection }).selection = new vscode.Selection(0, 9, 0, 15);
+        mockWindow.activeTextEditor = mockEditor;
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        manager.removeHighlight();
+        await waitForAsyncWork();
+
+        const remainingRule = storedTerms.find((term) => term.text === 'test');
+        assert.strictEqual(remainingRule, undefined, '带空白的选区应能移除高亮');
+    });
+
+    test('HighlightManager: clearAllHighlights 仅剩标签时不误报已清除', async () => {
+        const tagTerm: HighlightedTerm = {
+            id: 'highlight:todo:',
+            text: 'TODO:',
+            colorId: 0,
+            enabled: true,
+            caseSensitive: true,
+            matchMode: 'wholeWord',
+            scopeType: 'global',
+            isAnnotationTag: true,
+            annotationColorId: 0
+        };
+        let storedTerms: HighlightedTerm[] = [tagTerm];
+        let message = '';
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWindow.showInformationMessage = (async (msg: string) => {
+            message = msg;
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        manager.clearAllHighlights();
+        await waitForAsyncWork();
+
+        // 初始化同步后共 11 个内置标签，全部保留
+        assert.strictEqual(storedTerms.length, 11, '标签不应被清除');
+        assert.ok(storedTerms.every((term) => term.isAnnotationTag), '剩余项应全部为标签');
+        assert.ok(message.includes('Annotation tags'), '消息应说明标签单独管理：' + message);
+    });
+
+    test('HighlightManager: 对 annotation tag 添加自定义颜色被拒绝', async () => {
+        const tagTerm: HighlightedTerm = {
+            id: 'highlight:todo:',
+            text: 'TODO:',
+            colorId: 0,
+            enabled: true,
+            caseSensitive: true,
+            matchMode: 'wholeWord',
+            scopeType: 'global',
+            isAnnotationTag: true,
+            annotationColorId: 0
+        };
+        let storedTerms: HighlightedTerm[] = [tagTerm];
+        let message = '';
+        const mockWindow = getMockVSCodeWindow();
+
+        mockContext.globalState.get = <T>() => storedTerms as unknown as T;
+        mockContext.globalState.update = async (_key: string, value: unknown) => {
+            storedTerms = value as HighlightedTerm[];
+        };
+        mockWindow.showInformationMessage = (async (msg: string) => {
+            message = msg;
+            return '';
+        }) as typeof mockWindow.showInformationMessage;
+
+        // 文档包含 TODO: 文本，选中前 5 个字符
+        const tagDocument = createMockDocument('TODO: something');
+        const tagEditor = createMockEditor(tagDocument);
+        (tagEditor as unknown as { selection: vscode.Selection }).selection = new vscode.Selection(0, 0, 0, 5);
+        mockWindow.activeTextEditor = tagEditor;
+
+        const manager = new HighlightManager(mockContext);
+        await waitForAsyncWork();
+        await manager.addHighlightWithCustomColor();
+        await waitForAsyncWork();
+
+        assert.ok(message.includes('annotation tag'), '应提示标签不适用自定义颜色：' + message);
+        assert.strictEqual(storedTerms.length, 11, '不应新增规则');
+        const todoRule = storedTerms.find((term) => term.text === 'TODO:');
+        assert.notStrictEqual(todoRule?.isCustomColor, true, '标签不应被改为自定义颜色');
     });
 
     test('HighlightManager: dispose 方法应该释放所有资源', () => {

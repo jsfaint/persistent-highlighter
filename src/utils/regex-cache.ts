@@ -8,6 +8,20 @@ const DEFAULT_CACHE_SIZE = 100;
 const ASCII_ALPHANUMERIC_BOUNDARY = String.raw`[A-Za-z0-9]`;
 
 /**
+ * 高风险正则模式检测
+ * 防止灾难性回溯（ReDoS）冻结 VS Code 主线程：
+ * - 嵌套量词：如 (a+)+、(a*)* 在长输入上呈指数回溯
+ * - 重复交替：如 (a|a)+ 在长输入上同样指数回溯
+ * 单次 RegExp.exec 无法被中断，必须在编译前拒绝这些模式。
+ */
+const NESTED_QUANTIFIER_PATTERN = /\([^()]*[+*][^()]*\)[+*{]/;
+const REPEATED_ALTERNATION_PATTERN = /\([^()]*\|[^()]*\)[+*{]/;
+
+function isDangerousRegexPattern(pattern: string): boolean {
+    return NESTED_QUANTIFIER_PATTERN.test(pattern) || REPEATED_ALTERNATION_PATTERN.test(pattern);
+}
+
+/**
  * 正则表达式缓存管理器
  * 避免重复创建相同的正则表达式对象，提高性能
  *
@@ -119,6 +133,12 @@ export function createHighlightRegex(
     const flags = caseSensitive ? 'g' : 'gi';
 
     if (matchMode === "regex") {
+        if (isDangerousRegexPattern(searchText)) {
+            throw new Error(
+                "Dangerous regex pattern detected (nested quantifier or repeated alternation); " +
+                "it can freeze the editor. Please simplify the pattern."
+            );
+        }
         return new RegExp(searchText, flags);
     }
 
@@ -145,23 +165,4 @@ export function createHighlightRegex(
  */
 function escapeRegex(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * 全字匹配搜索函数 - 支持英文和非英文文本
- * @returns 匹配位置的索引，未找到返回 -1
- */
-export function findWholeWord(text: string, searchText: string, caseSensitive: boolean = false): number {
-    if (!searchText || !text) {
-        return -1;
-    }
-
-    try {
-        const regex = RegexCache.getInstance().getRegex(searchText, caseSensitive, "wholeWord");
-        const match = regex.exec(text);
-        return match ? match.index : -1;
-    } catch (error) {
-        console.warn(`Error finding whole word: ${error}`);
-        return -1;
-    }
 }

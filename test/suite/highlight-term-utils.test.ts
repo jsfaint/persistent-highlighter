@@ -17,6 +17,24 @@ suite("highlight-term-utils 测试", () => {
         setupVSCodeMocks();
     });
 
+    test("normalizeHighlightedTerm: caseSensitive 模式下大小写不同文本生成不同 id", () => {
+        const upper = normalizeHighlightedTerm({ text: "Foo", colorId: 0 }, true);
+        const lower = normalizeHighlightedTerm({ text: "foo", colorId: 1 }, true);
+
+        assert.notStrictEqual(upper.id, lower.id, "大小写不同的规则 id 不应碰撞");
+    });
+
+    test("normalizeHighlightedTerm: 旧版小写 id 自动重新生成", () => {
+        // 旧版本 id 按小写文本生成（highlight:foo），与新规则会碰撞，应重新生成
+        const normalized = normalizeHighlightedTerm(
+            { id: "highlight:foo", text: "Foo", colorId: 0 },
+            true
+        );
+
+        assert.notStrictEqual(normalized.id, "highlight:foo", "旧格式 id 应被替换");
+        assert.strictEqual(normalized.id, "highlight:Foo");
+    });
+
     test("normalizeHighlightedTerm: 为旧数据补齐默认字段", () => {
         const normalized = normalizeHighlightedTerm(
             {

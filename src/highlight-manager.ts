@@ -46,7 +46,7 @@ export class HighlightManager implements vscode.Disposable {
     readonly #treeProvider: HighlightsTreeProvider | undefined;
     readonly #decoratorManager: IDecoratorManager;
     readonly #annotationTagManager = new AnnotationTagManager();
-    readonly #highlightCache = new Map<vscode.TextDocument, CachedHighlight[]>();
+    #sidebarRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
     constructor(context: vscode.ExtensionContext, treeProvider?: HighlightsTreeProvider, decoratorManager?: IDecoratorManager) {
         this.#context = context;
@@ -77,16 +77,9 @@ export class HighlightManager implements vscode.Disposable {
                 const activeEditor = vscode.window.activeTextEditor;
                 if (activeEditor && event.document === activeEditor.document) {
                     this.#updateDecorations(activeEditor);
-                    this.#refreshSidebar();
+                    // 侧边栏刷新含 rg 扫描，输入时用防抖合并，避免每击一键 spawn 进程
+                    this.#scheduleSidebarRefresh();
                 }
-            },
-            null,
-            this.#context.subscriptions
-        );
-
-        vscode.workspace.onDidCloseTextDocument(
-            (document) => {
-                this.#highlightCache.delete(document);
             },
             null,
             this.#context.subscriptions
@@ -178,11 +171,14 @@ export class HighlightManager implements vscode.Disposable {
             return;
         }
 
+        // 存储时文本已 trim，查找必须用 trim 后的值
+        // 否则整行选择（含换行）或带首尾空格的选区会误报 "not currently highlighted"
+        const trimmedText = textToRemove.trim();
         const terms = this.#getTerms();
-        const termIndex = this.#findTermIndex(terms, textToRemove, editor.document);
+        const termIndex = this.#findTermIndex(terms, trimmedText, editor.document);
 
         if (termIndex === -1) {
-            vscode.window.showInformationMessage(`'${textToRemove}' is not currently highlighted.`);
+            vscode.window.showInformationMessage(`'${trimmedText}' is not currently highlighted.`);
             return;
         }
 
@@ -307,7 +303,10 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     /**
-     * 在编辑器中添加高亮
+     * 在编辑器中添加高亮（toggle 语义）
+     * - 命中已启用规则：删除
+     * - 命中已禁用规则：重新启用（而非删除，否则用户无法通过 toggle 恢复高亮）
+     * - 未命中：添加新规则
      */
     #addHighlightAtEditor(editor: vscode.TextEditor): void {
         const textToToggle = EditorUtils.getSelectedText(editor);
@@ -321,6 +320,19 @@ export class HighlightManager implements vscode.Disposable {
         const termIndex = this.#findTermIndex(terms, trimmedText, editor.document);
 
         if (termIndex !== -1) {
+            const existing = terms[termIndex];
+            if (existing.enabled === false) {
+                if (existing.isAnnotationTag) {
+                    // 标签的启用状态由 annotationTagStates 配置驱动，改配置后由事件触发同步
+                    this.#annotationTagManager.enableTag(trimmedText);
+                } else {
+                    terms[termIndex] = { ...existing, enabled: true };
+                    void this.#updateGlobalState(terms);
+                }
+                return;
+            }
+
+            this.#decoratorManager.disposeDecorationsForText(existing.text);
             terms.splice(termIndex, 1);
         } else {
             const colorId = terms.length % colorPool.length;
@@ -354,7 +366,7 @@ export class HighlightManager implements vscode.Disposable {
             if (userTerms.length === terms.length) {
                 vscode.window.showInformationMessage("There are no highlights to clear.");
             } else {
-                vscode.window.showInformationMessage("All highlights have been cleared.");
+                vscode.window.showInformationMessage("Annotation tags are managed separately and were not cleared.");
             }
             return;
         }
@@ -401,6 +413,16 @@ export class HighlightManager implements vscode.Disposable {
             return;
         }
 
+        const trimmedText = textToHighlight.trim();
+        const currentTerms = this.#getTerms();
+        const existingTermIndex = this.#findTermIndex(currentTerms, trimmedText);
+        if (existingTermIndex !== -1 && currentTerms[existingTermIndex].isAnnotationTag) {
+            vscode.window.showInformationMessage(
+                `'${trimmedText}' is an annotation tag with a fixed color; custom colors do not apply to it.`
+            );
+            return;
+        }
+
         const customColorHex = await this.#showColorPicker();
         if (!customColorHex) {
             return;
@@ -412,8 +434,8 @@ export class HighlightManager implements vscode.Disposable {
             return;
         }
 
-        this.#addOrUpdateHighlightWithColor(textToHighlight.trim(), customColor);
-        this.#decoratorManager.registerCustomDecorationType(textToHighlight.trim(), customColor);
+        this.#addOrUpdateHighlightWithColor(trimmedText, customColor);
+        this.#decoratorManager.registerCustomDecorationType(trimmedText, customColor);
         this.#refreshAllEditors();
         this.#refreshSidebar();
 
@@ -587,7 +609,6 @@ export class HighlightManager implements vscode.Disposable {
         const terms = this.#getApplicableTerms(editor.document, false);
         if (terms.length === 0) {
             this.#decoratorManager.clearAllEditorDecorations(editor);
-            this.#highlightCache.delete(editor.document);
             return;
         }
 
@@ -610,7 +631,6 @@ export class HighlightManager implements vscode.Disposable {
             }
         }
 
-        this.#highlightCache.set(editor.document, highlights);
         this.#decoratorManager.applyHighlightsToEditor(editor, highlights);
     }
 
@@ -1011,6 +1031,21 @@ export class HighlightManager implements vscode.Disposable {
     }
 
     /**
+     * 防抖刷新侧边栏
+     * 输入时会触发 onDidChangeTextDocument，若立即刷新会为每个规则 spawn rg 进程；
+     * 合并为一次延迟刷新。
+     */
+    #scheduleSidebarRefresh(): void {
+        if (this.#sidebarRefreshTimer) {
+            clearTimeout(this.#sidebarRefreshTimer);
+        }
+        this.#sidebarRefreshTimer = setTimeout(() => {
+            this.#sidebarRefreshTimer = undefined;
+            this.#refreshSidebar();
+        }, 300);
+    }
+
+    /**
      * 刷新所有编辑器的高亮
      */
     #refreshAllEditors(): void {
@@ -1051,7 +1086,10 @@ export class HighlightManager implements vscode.Disposable {
      * 释放所有资源
      */
     dispose(): void {
+        if (this.#sidebarRefreshTimer) {
+            clearTimeout(this.#sidebarRefreshTimer);
+            this.#sidebarRefreshTimer = undefined;
+        }
         this.#decoratorManager.dispose();
-        this.#highlightCache.clear();
     }
 }

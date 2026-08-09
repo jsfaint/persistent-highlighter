@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { RegexCache, createHighlightRegex, findWholeWord } from "../../src/utils/regex-cache";
+import { RegexCache, createHighlightRegex } from "../../src/utils/regex-cache";
 
 suite("RegexCache Suite", () => {
     setup(() => {
@@ -150,38 +150,51 @@ suite("createHighlightRegex Suite", () => {
     });
 });
 
-suite("findWholeWord Suite", () => {
-    test("应该找到匹配的单词索引", () => {
-        const text = "hello world test";
-        const index = findWholeWord(text, "world", false);
+suite("危险正则防护 Suite", () => {
+    test("应拒绝嵌套量词 (a+)+ 防 ReDoS", () => {
+        assert.throws(() => {
+            createHighlightRegex("(a+)+$", false, "regex");
+        }, /Dangerous regex pattern/, "嵌套量词应被拒绝");
 
-        assert.strictEqual(index, 6, "应该返回正确的索引");
+        assert.throws(() => {
+            createHighlightRegex("(?:a*)+", false, "regex");
+        }, /Dangerous regex pattern/, "非捕获组嵌套量词应被拒绝");
     });
 
-    test("未找到应该返回 -1", () => {
-        const text = "hello world";
-        const index = findWholeWord(text, "foo", false);
+    test("应拒绝重复交替 (a|a)+ 防 ReDoS", () => {
+        assert.throws(() => {
+            createHighlightRegex("(a|a)+", false, "regex");
+        }, /Dangerous regex pattern/, "重复交替应被拒绝");
 
-        assert.strictEqual(index, -1, "未找到应该返回 -1");
+        assert.throws(() => {
+            createHighlightRegex("(ab|cd)*", false, "regex");
+        }, /Dangerous regex pattern/, "重复交替星号应被拒绝");
     });
 
-    test("空文本应该返回 -1", () => {
-        const index1 = findWholeWord("", "test", false);
-        const index2 = findWholeWord("test", "", false);
+    test("安全正则模式不受影响", () => {
+        const regex = createHighlightRegex("(foo)+", false, "regex");
+        assert.ok(regex instanceof RegExp, "普通分组量词应放行");
 
-        assert.strictEqual(index1, -1, "空搜索文本应该返回 -1");
-        assert.strictEqual(index2, -1, "空源文本应该返回 -1");
+        const alternation = createHighlightRegex("(TODO|FIXME)", false, "regex");
+        assert.ok(alternation instanceof RegExp, "普通交替应放行");
+
+        const anchored = createHighlightRegex("\\bfoo\\d+", false, "regex");
+        assert.ok(anchored instanceof RegExp, "锚定模式应放行");
     });
 
-    test("应该使用缓存提高性能", () => {
-        const text = "test test test";
+    test("零宽正则应完整匹配所有位置（不丢末尾）", () => {
+        const regex = createHighlightRegex("(?=.)|$", false, "regex");
+        const text = "abc";
+        const positions: number[] = [];
+        let match: RegExpExecArray | null;
 
-        // 第一次调用会创建并缓存
-        const index1 = findWholeWord(text, "test", false);
-        // 第二次调用应该使用缓存
-        const index2 = findWholeWord(text, "test", false);
+        while ((match = regex.exec(text)) !== null) {
+            positions.push(match.index);
+            if (match.index === regex.lastIndex) {
+                regex.lastIndex++;
+            }
+        }
 
-        assert.strictEqual(index1, 0, "应该找到第一个匹配");
-        assert.strictEqual(index2, 0, "应该找到第一个匹配");
+        assert.deepStrictEqual(positions, [0, 1, 2, 3], "零宽匹配应包含末尾位置");
     });
 });

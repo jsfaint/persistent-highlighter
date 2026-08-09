@@ -255,11 +255,14 @@ export class DecoratorManager implements IDecoratorManager {
      * 清理指定文本相关的自定义装饰器
      * @param text 要清理的高亮文本
      * @remarks
-     * 会释放所有以该文本开头的装饰器类型的资源
+     * 会释放所有以该文本为前缀的装饰器类型的资源。
+     * key 格式为 `text_backgroundColor`，必须按完整文本边界匹配，
+     * 否则删除 "foo" 会误伤 "foobar" 的装饰器（前缀误删 bug）。
      */
     public disposeDecorationsForText(text: string): void {
+        const keyPrefix = `${text}_`;
         for (const [key, decorationType] of this.customDecorationTypes) {
-            if (key.startsWith(text)) {
+            if (key.startsWith(keyPrefix)) {
                 decorationType.dispose();
                 this.customDecorationTypes.delete(key);
             }

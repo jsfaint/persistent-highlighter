@@ -10,6 +10,12 @@ import { getHighlightCaseSensitive, getHighlightMatchMode } from "./highlight-te
 const MAX_REGEX_MATCHES = 10000;
 
 /**
+ * 单次 exec 循环的总时间预算（毫秒）
+ * 防止匹配数量巨大的正则（如 \b）长时间阻塞主线程
+ */
+const REGEX_EXECUTION_BUDGET_MS = 10;
+
+/**
  * 编辑器工具类
  * 提供与编辑器相关的通用功能
  */
@@ -85,13 +91,20 @@ export class EditorUtils {
     ): number {
         let match: RegExpExecArray | null;
         let matchCount = 0;
-        const maxMatches = Math.min(text.length, MAX_REGEX_MATCHES);
+        // 零宽匹配（如 (?=.)）最多产生 text.length + 1 次匹配，+1 保证末尾匹配不被丢弃
+        const maxMatches = Math.min(text.length + 1, MAX_REGEX_MATCHES);
+        const startTime = Date.now();
 
         while ((match = regex.exec(text)) !== null) {
             matchCount++;
 
             if (matchCount > maxMatches) {
                 console.warn(`Max matches reached for regex`);
+                break;
+            }
+
+            if (Date.now() - startTime > REGEX_EXECUTION_BUDGET_MS) {
+                console.warn(`Regex execution budget exceeded (${REGEX_EXECUTION_BUDGET_MS}ms, ${matchCount} matches); skipping remaining matches`);
                 break;
             }
 
